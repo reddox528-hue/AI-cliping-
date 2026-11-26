@@ -77,7 +77,7 @@ export function CustomerOverview({
             Welcome back, {profile?.displayName}
           </h1>
           <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-            All metrics reflect your live Firestore workspace records and daily processing allowance.
+            All metrics reflect your live workspace records and daily processing allowance.
           </p>
         </div>
 
@@ -85,7 +85,7 @@ export function CustomerOverview({
           <button
             type="button"
             onClick={() => onNavigate('create')}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors whitespace-nowrap"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold transition-colors whitespace-nowrap"
           >
             <PlusCircle className="w-4 h-4" />
             Create New Clips
@@ -93,7 +93,7 @@ export function CustomerOverview({
           <button
             type="button"
             onClick={() => onNavigate('editor')}
-            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-sm font-semibold transition-colors whitespace-nowrap"
+            className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-slate-300 dark:border-[#2A2F45] hover:bg-slate-100 dark:hover:bg-[#1E2233] text-sm font-semibold transition-colors whitespace-nowrap"
           >
             <Sliders className="w-4 h-4" />
             Open Video Editor
@@ -108,13 +108,13 @@ export function CustomerOverview({
           return (
             <div
               key={card.label}
-              className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0E1424] p-4"
+              className="rounded-2xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926] p-4"
             >
               <div className="flex items-center justify-between text-slate-400 mb-3">
                 <span className="text-xs font-medium text-slate-500 dark:text-slate-400">
                   {card.label}
                 </span>
-                <Icon className="w-4 h-4 shrink-0" />
+                <Icon className="w-4 h-4 shrink-0 text-purple-500/80" />
               </div>
               <p className="text-2xl font-bold tabular-nums text-slate-950 dark:text-white">
                 {loading ? '—' : card.value}
@@ -126,7 +126,7 @@ export function CustomerOverview({
 
       <div className="grid lg:grid-cols-12 gap-6">
         {/* Recent Projects */}
-        <div className="lg:col-span-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0E1424] p-5">
+        <div className="lg:col-span-6 rounded-2xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926] p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-bold text-base text-slate-900 dark:text-white">
               Recent Projects
@@ -134,7 +134,7 @@ export function CustomerOverview({
             <button
               type="button"
               onClick={() => onNavigate('projects')}
-              className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-purple-600 dark:text-purple-400 hover:underline"
             >
               View all
               <ArrowRight className="w-3.5 h-3.5" />
@@ -144,7 +144,7 @@ export function CustomerOverview({
           {loading ? (
             <div className="space-y-3">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-12 rounded-xl bg-slate-100 dark:bg-slate-800/60 animate-pulse" />
+                <div key={i} className="h-12 rounded-xl bg-slate-100 dark:bg-[#1E2233] animate-pulse" />
               ))}
             </div>
           ) : projects.length === 0 ? (
@@ -155,13 +155,13 @@ export function CustomerOverview({
               <button
                 type="button"
                 onClick={() => onNavigate('create')}
-                className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-xs font-semibold"
+                className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold"
               >
                 Start First Project
               </button>
             </div>
           ) : (
-            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            <div className="divide-y divide-slate-100 dark:divide-[#24283B]">
               {projects.slice(0, 5).map((proj) => (
                 <div key={proj.projectId} className="py-3 flex items-center justify-between gap-3">
                   <div className="min-w-0">
@@ -175,7 +175,7 @@ export function CustomerOverview({
                   <button
                     type="button"
                     onClick={() => onNavigate('clips')}
-                    className="text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline shrink-0"
+                    className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:underline shrink-0"
                   >
                     Open
                   </button>
@@ -186,7 +186,7 @@ export function CustomerOverview({
         </div>
 
         {/* Recent Generated Clips */}
-        <div className="lg:col-span-6 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0E1424] p-5">
+        <div className="lg:col-span-6 rounded-2xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926] p-5">
           <div className="flex items-center justify-between mb-4">
             <h2 className="font-bold text-base text-slate-900 dark:text-white">
               Recent Generated Clips
@@ -194,7 +194,7 @@ export function CustomerOverview({
             <button
               type="button"
               onClick={() => onNavigate('clips')}
-              className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400 hover:underline"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-purple-600 dark:text-purple-400 hover:underline"
             >
               View all
               <ArrowRight className="w-3.5 h-3.5" />
@@ -204,7 +204,7 @@ export function CustomerOverview({
           {loading ? (
             <div className="space-y-3">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="h-12 rounded-xl bg-slate-100 dark:bg-slate-800/60 animate-pulse" />
+                <div key={i} className="h-12 rounded-xl bg-slate-100 dark:bg-[#1E2233] animate-pulse" />
               ))}
             </div>
           ) : clips.length === 0 ? (
@@ -214,7 +214,7 @@ export function CustomerOverview({
               </p>
             </div>
           ) : (
-            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            <div className="divide-y divide-slate-100 dark:divide-[#24283B]">
               {clips.slice(0, 5).map((clip) => (
                 <div key={clip.clipId} className="py-3 flex items-center justify-between gap-3">
                   <div className="min-w-0">
@@ -228,7 +228,7 @@ export function CustomerOverview({
                   <button
                     type="button"
                     onClick={() => onOpenClipInEditor(clip)}
-                    className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-slate-700 text-xs font-semibold hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0"
+                    className="px-3 py-1.5 rounded-lg border border-slate-200 dark:border-[#2A2F45] text-xs font-semibold hover:bg-slate-100 dark:hover:bg-[#1E2233] shrink-0"
                   >
                     Edit
                   </button>

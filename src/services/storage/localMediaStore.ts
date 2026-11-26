@@ -66,6 +66,7 @@ export async function uploadBlobToR2IfConfigured(params: {
     const headers = await getAuthHeaders();
     const res = await fetch('/api/storage/presign-upload', {
       method: 'POST',
+      credentials: 'same-origin',
       headers,
       body: JSON.stringify({
         fileName: params.fileName,
@@ -127,6 +128,7 @@ export async function resolveMediaBlob(storagePath: string, fallbackLocalKey?: s
     const headers = await getAuthHeaders();
     const res = await fetch('/api/storage/presign-download', {
       method: 'POST',
+      credentials: 'same-origin',
       headers,
       body: JSON.stringify({ objectKey }),
     });

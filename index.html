@@ -16,17 +16,16 @@
       (function () {
         try {
           var saved = localStorage.getItem('clipora-theme');
-          var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-          if (saved === 'dark' || (!saved && prefersDark)) {
-            document.documentElement.classList.add('dark');
-          } else {
+          if (saved === 'light') {
             document.documentElement.classList.remove('dark');
+          } else {
+            document.documentElement.classList.add('dark');
           }
         } catch (e) {}
       })();
     </script>
   </head>
-  <body class="bg-slate-50 text-slate-900 dark:bg-[#080C18] dark:text-slate-100 antialiased selection:bg-blue-600/20 selection:text-blue-700 dark:selection:text-blue-300">
+  <body class="bg-slate-50 text-slate-900 dark:bg-[#0D0F17] dark:text-slate-100 antialiased selection:bg-purple-600/25 selection:text-purple-900 dark:selection:text-purple-200 overflow-x-hidden">
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

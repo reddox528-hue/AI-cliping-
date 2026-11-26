@@ -1,56 +1,110 @@
 import type { NextFunction, Request, Response } from 'express';
-import { getApp, getApps, initializeApp } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
-import { env } from '../config/env.ts';
+import { getDatabase, type CliporaDatabase } from '../db/database.ts';
+import type { AccountStatus, UserRole } from '../security/rbac.ts';
+import {
+  parseCookieHeader,
+  SESSION_COOKIE_NAME,
+  verifySessionToken,
+} from '../security/sessionToken.ts';
 
 export interface AuthenticatedRequest extends Request {
   auth?: {
     uid: string;
-    email?: string;
-    emailVerified: boolean;
+    email: string;
+    role: UserRole;
+    accountStatus: AccountStatus;
+    token: string;
   };
 }
 
-function getFirebaseAdminAuth() {
-  if (!env.firebaseProjectId || env.firebaseProjectId === 'remixed-project-id') {
-    throw new Error('Firebase project is not configured.');
+const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+
+export function extractRequestToken(req: Request): {
+  token: string | null;
+  viaCookie: boolean;
+} {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    const bearer = authHeader.slice('Bearer '.length).trim();
+    if (bearer) return { token: bearer, viaCookie: false };
   }
-  const app = getApps().length
-    ? getApp()
-    : initializeApp({ projectId: env.firebaseProjectId });
-  return getAuth(app);
+
+  const cookies = parseCookieHeader(req.headers.cookie);
+  const cookieToken = cookies[SESSION_COOKIE_NAME];
+  if (cookieToken) {
+    return { token: cookieToken, viaCookie: true };
+  }
+
+  return { token: null, viaCookie: false };
 }
 
-export async function requireFirebaseAuth(
-  req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
-  try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      res.status(401).json({ error: 'Authentication required. Missing Bearer token.' });
+export function createAuthMiddleware(db?: CliporaDatabase) {
+  const resolveDb = () => db ?? getDatabase();
+
+  const requireAuth = (
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ): void => {
+    const { token, viaCookie } = extractRequestToken(req);
+    if (!token) {
+      res.status(401).json({ error: 'Authentication required. Please sign in.' });
       return;
     }
 
-    const idToken = authHeader.slice('Bearer '.length).trim();
-    if (!idToken || idToken.length > 8192) {
-      res.status(401).json({ error: 'Invalid authentication token format.' });
+    // CSRF defense when relying solely on HttpOnly cookies for state-changing requests
+    if (viaCookie && MUTATING_METHODS.has(req.method.toUpperCase())) {
+      const xrw = String(req.headers['x-requested-with'] || '');
+      if (xrw !== 'CliporaApp') {
+        res.status(403).json({ error: 'Forbidden: missing anti-CSRF request header.' });
+        return;
+      }
+    }
+
+    const payload = verifySessionToken(token);
+    if (!payload) {
+      res.status(401).json({ error: 'Unauthorized: invalid or expired session.' });
       return;
     }
 
-    const adminAuth = getFirebaseAdminAuth();
-    const decoded = await adminAuth.verifyIdToken(idToken);
+    const user = resolveDb().getUserAuthByUid(payload.uid);
+    if (!user) {
+      res.status(401).json({ error: 'Unauthorized: account no longer exists.' });
+      return;
+    }
 
     req.auth = {
-      uid: decoded.uid,
-      email: decoded.email,
-      emailVerified: Boolean(decoded.email_verified),
+      uid: user.uid,
+      email: user.email,
+      role: user.role,
+      accountStatus: user.accountStatus,
+      token,
     };
 
     next();
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Token verification failed';
-    res.status(401).json({ error: `Unauthorized: ${message}` });
-  }
+  };
+
+  const requireApprovedUser = (
+    req: AuthenticatedRequest,
+    res: Response,
+    next: NextFunction
+  ): void => {
+    if (!req.auth) {
+      res.status(401).json({ error: 'Authentication required.' });
+      return;
+    }
+    if (req.auth.accountStatus !== 'APPROVED') {
+      res.status(403).json({
+        error: 'Your account must be approved by an administrator before using workspace features.',
+      });
+      return;
+    }
+    next();
+  };
+
+  return { requireAuth, requireApprovedUser };
 }
+
+const defaultMiddlewares = createAuthMiddleware();
+export const requireAuth = defaultMiddlewares.requireAuth;
+export const requireApprovedUser = defaultMiddlewares.requireApprovedUser;

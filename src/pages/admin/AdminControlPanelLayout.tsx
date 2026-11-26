@@ -84,20 +84,20 @@ export function AdminControlPanelLayout({
   const activeNav = visibleNav.find((item) => item.id === activeRoute) || visibleNav[0];
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-[#070B14] text-slate-900 dark:text-slate-100 flex">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0D0F17] text-slate-900 dark:text-slate-100 flex overflow-x-hidden">
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-slate-950/50 lg:hidden"
+          className="fixed inset-0 z-40 bg-slate-950/60 backdrop-blur-xs lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
 
       <aside
-        className={`fixed lg:sticky top-0 left-0 z-50 h-screen w-68 shrink-0 border-r border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0B101D] flex flex-col transition-transform duration-200 ${
+        className={`fixed lg:sticky top-0 left-0 z-50 h-screen w-68 shrink-0 border-r border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#121521] flex flex-col transition-transform duration-200 ${
           sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'
         }`}
       >
-        <div className="h-16 px-5 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+        <div className="h-16 px-5 border-b border-slate-200 dark:border-[#24283B] flex items-center justify-between">
           <div>
             <span className="font-display font-bold text-sm tracking-tight text-slate-950 dark:text-white block">
               REDDOX Clipora AI
@@ -141,11 +141,11 @@ export function AdminControlPanelLayout({
           })}
         </nav>
 
-        <div className="p-3 border-t border-slate-200 dark:border-slate-800 space-y-2">
+        <div className="p-3 border-t border-slate-200 dark:border-[#24283B] space-y-2">
           <button
             type="button"
             onClick={onReturnCreatorApp}
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800"
+            className="w-full flex items-center gap-2 px-3 py-2 rounded-xl border border-slate-200 dark:border-[#24283B] text-xs font-semibold text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-[#161926]"
           >
             <ArrowLeft className="w-3.5 h-3.5" />
             Creator Studio
@@ -180,13 +180,13 @@ export function AdminControlPanelLayout({
       </aside>
 
       <div className="flex-1 min-w-0 flex flex-col">
-        <header className="sticky top-0 z-30 h-16 px-4 sm:px-6 border-b border-slate-200 dark:border-slate-800 bg-white/90 dark:bg-[#0B101D]/90 backdrop-blur-md flex items-center justify-between gap-4">
+        <header className="sticky top-0 z-30 h-16 px-4 sm:px-6 border-b border-slate-200 dark:border-[#24283B] bg-white/90 dark:bg-[#121521]/90 backdrop-blur-md flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <button
               type="button"
               onClick={() => setSidebarOpen(true)}
               aria-label="Open admin navigation"
-              className="lg:hidden p-2 rounded-lg border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300"
+              className="lg:hidden w-10 h-10 inline-flex items-center justify-center rounded-xl border border-slate-200 dark:border-[#24283B] text-slate-600 dark:text-slate-300"
             >
               <Menu className="w-5 h-5" />
             </button>

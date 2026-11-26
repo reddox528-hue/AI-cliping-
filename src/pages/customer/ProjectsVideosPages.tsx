@@ -8,7 +8,7 @@ import {
   deleteProjectRecord,
   deleteSourceVideo,
   updateProject,
-} from '../../services/firebase/firestoreService';
+} from '../../services/data/workspaceService';
 import { deleteLocalMediaBlob } from '../../services/storage/localMediaStore';
 import { formatTimecode } from '../../services/video/videoAnalysis';
 import type { ProjectRecord, SourceVideoRecord } from '../../types/clipora';
@@ -93,7 +93,7 @@ export function ProjectsPage({
         <button
           type="button"
           onClick={onGoCreate}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shrink-0"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold shrink-0"
         >
           <PlusCircle className="w-4 h-4" />
           New Project
@@ -108,13 +108,13 @@ export function ProjectsPage({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search projects..."
-            className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#0E1424] text-sm"
+            className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 dark:border-[#2A2F45] bg-white dark:bg-[#161926] text-sm"
           />
         </div>
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
-          className="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#0E1424] text-sm"
+          className="px-3 py-2 rounded-xl border border-slate-300 dark:border-[#2A2F45] bg-white dark:bg-[#161926] text-sm"
         >
           <option value="ALL">All Statuses</option>
           <option value="READY">Ready</option>
@@ -125,7 +125,7 @@ export function ProjectsPage({
       </div>
 
       {filtered.length === 0 ? (
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0E1424] p-12 text-center">
+        <div className="rounded-2xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926] p-12 text-center">
           <FolderKanban className="w-8 h-8 text-slate-400 mx-auto mb-3" />
           <p className="text-sm font-semibold text-slate-900 dark:text-white">No projects found</p>
           <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
@@ -133,9 +133,9 @@ export function ProjectsPage({
           </p>
         </div>
       ) : (
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0E1424] overflow-x-auto">
+        <div className="rounded-2xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926] overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-200 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400">
+            <thead className="border-b border-slate-200 dark:border-[#24283B] text-xs text-slate-500 dark:text-slate-400">
               <tr>
                 <th className="py-3 px-4 font-semibold">Project Name</th>
                 <th className="py-3 px-4 font-semibold">Status</th>
@@ -197,7 +197,7 @@ export function ProjectsPage({
       <ConfirmDialog
         open={Boolean(deleteTarget)}
         title="Delete Project"
-        description={`Delete "${deleteTarget?.projectName}"? Metadata will be removed from Firestore.`}
+        description={`Delete "${deleteTarget?.projectName}"? Metadata will be removed from your workspace.`}
         confirmLabel="Delete"
         destructive
         loading={busy}
@@ -251,7 +251,7 @@ export function VideosPage({
         <button
           type="button"
           onClick={onGoCreate}
-          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold shrink-0"
+          className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold shrink-0"
         >
           <PlusCircle className="w-4 h-4" />
           Upload Video
@@ -259,14 +259,14 @@ export function VideosPage({
       </div>
 
       {videos.length === 0 ? (
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0E1424] p-12 text-center">
+        <div className="rounded-2xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926] p-12 text-center">
           <Film className="w-8 h-8 text-slate-400 mx-auto mb-3" />
           <p className="text-sm font-semibold text-slate-900 dark:text-white">No source videos yet</p>
         </div>
       ) : (
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0E1424] overflow-x-auto">
+        <div className="rounded-2xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926] overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-200 dark:border-slate-800 text-xs text-slate-500 dark:text-slate-400">
+            <thead className="border-b border-slate-200 dark:border-[#24283B] text-xs text-slate-500 dark:text-slate-400">
               <tr>
                 <th className="py-3 px-4 font-semibold">File Name</th>
                 <th className="py-3 px-4 font-semibold">Resolution</th>

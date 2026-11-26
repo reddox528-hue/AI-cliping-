@@ -26,7 +26,7 @@ import {
   listSourceVideosByOwner,
   listTranscriptsByOwner,
   listUsageByOwner,
-} from './services/firebase/firestoreService';
+} from './services/data/workspaceService';
 import type {
   BrandKitRecord,
   ClipRecord,
@@ -50,7 +50,7 @@ function CustomerWorkspaceApp({
 }: {
   onNavigateAdminAccess: () => void;
 }) {
-  const { firebaseUser, profile, loading } = useAuth();
+  const { user, profile, loading } = useAuth();
   const [publicView, setPublicView] = useState<'landing' | 'signin' | 'register'>('landing');
   const [customerRoute, setCustomerRoute] = useState<CustomerRoute>('overview');
 
@@ -98,13 +98,13 @@ function CustomerWorkspaceApp({
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#070B14] text-slate-600 dark:text-slate-300 text-sm">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#0D0F17] text-slate-600 dark:text-slate-300 text-sm">
         Initializing REDDOX Clipora AI...
       </div>
     );
   }
 
-  if (!firebaseUser || !profile) {
+  if (!user || !profile) {
     if (publicView === 'landing') {
       return (
         <LandingPage
@@ -224,7 +224,7 @@ function AppRouter() {
     return (
       <Suspense
         fallback={
-          <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#070B14] text-slate-600 dark:text-slate-300 text-sm">
+          <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#0D0F17] text-slate-600 dark:text-slate-300 text-sm">
             Verifying session authorization...
           </div>
         }

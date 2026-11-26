@@ -1,15 +1,16 @@
 import crypto from 'crypto';
 import { Router, type Response } from 'express';
 import { isGeminiConfigured, isR2Configured } from '../config/env.ts';
+import { getDatabase, type CliporaDatabase } from '../db/database.ts';
 import {
   createAdminMiddleware,
-  defaultAdminAuthDeps,
+  createDefaultAdminAuthDeps,
   type AdminAuthDeps,
   type AdminAuthRequest,
 } from '../middleware/adminAuth.ts';
 import { createRateLimiter } from '../middleware/rateLimit.ts';
+import { hashPassword } from '../security/password.ts';
 import {
-  ALL_ADMIN_PERMISSIONS,
   canManageTargetAccount,
   DEFAULT_ADMIN_PERMISSIONS,
   isSuperAdminCaller,
@@ -19,58 +20,9 @@ import {
   type UserRole,
 } from '../security/rbac.ts';
 import {
-  sendPasswordResetEmailApi,
-  sendVerificationEmail,
-  signUpWithEmailPassword,
-  type IdentityAuthResult,
-} from '../services/firebaseIdentityToolkit.ts';
-import {
-  createFirestoreDocument,
-  deleteFirestoreDocument,
-  getFirestoreDocument,
-  listFirestoreCollection,
-  patchFirestoreDocument,
-  setFirestoreDocument,
-} from '../services/firestoreRest.ts';
-import {
   getRecentSecurityEvents,
-  logSecurityEvent,
   type SecurityEventAction,
 } from '../services/securityMonitor.ts';
-
-export interface AdminFirestoreStore {
-  getDoc: (idToken: string, docPath: string) => Promise<Record<string, unknown> | null>;
-  listCol: (idToken: string, collectionName: string) => Promise<Array<Record<string, unknown>>>;
-  createDoc: (
-    idToken: string,
-    collectionName: string,
-    docId: string,
-    data: Record<string, unknown>,
-    serverTimeFields?: string[]
-  ) => Promise<void>;
-  patchDoc: (
-    idToken: string,
-    docPath: string,
-    data: Record<string, unknown>,
-    serverTimeFields?: string[]
-  ) => Promise<void>;
-  setDoc: (
-    idToken: string,
-    docPath: string,
-    data: Record<string, unknown>,
-    serverTimeFields?: string[]
-  ) => Promise<void>;
-  deleteDoc: (idToken: string, docPath: string) => Promise<void>;
-}
-
-const defaultAdminStore: AdminFirestoreStore = {
-  getDoc: getFirestoreDocument,
-  listCol: (token, col) => listFirestoreCollection(token, col, 400),
-  createDoc: createFirestoreDocument,
-  patchDoc: patchFirestoreDocument,
-  setDoc: setFirestoreDocument,
-  deleteDoc: deleteFirestoreDocument,
-};
 
 const VALID_ID_REGEX = /^[a-zA-Z0-9_-]{1,128}$/;
 
@@ -78,31 +30,19 @@ function isValidId(id: string): boolean {
   return VALID_ID_REGEX.test(id);
 }
 
-export interface AdminIdentityProvider {
-  signUp: (params: {
-    email: string;
-    password: string;
-    displayName?: string;
-  }) => Promise<IdentityAuthResult>;
-  sendVerification: (idToken: string) => Promise<void>;
-  sendPasswordReset: (email: string) => Promise<void>;
+function generateTempPassword(): string {
+  // Meets >=12 chars with uppercase, lowercase, and digit without ambiguous characters
+  const raw = crypto.randomBytes(9).toString('base64url');
+  return `Rd!9${raw}`;
 }
 
-const defaultIdentityProvider: AdminIdentityProvider = {
-  signUp: signUpWithEmailPassword,
-  sendVerification: sendVerificationEmail,
-  sendPasswordReset: sendPasswordResetEmailApi,
-};
-
 export function createAdminApiRouter(options?: {
+  db?: CliporaDatabase;
   authDeps?: AdminAuthDeps;
-  store?: AdminFirestoreStore;
-  identity?: AdminIdentityProvider;
 }) {
   const router = Router();
-  const authDeps = options?.authDeps ?? defaultAdminAuthDeps;
-  const store = options?.store ?? defaultAdminStore;
-  const identity = options?.identity ?? defaultIdentityProvider;
+  const resolveDb = () => options?.db ?? getDatabase();
+  const authDeps = options?.authDeps ?? createDefaultAdminAuthDeps(options?.db);
   const {
     requireAuthenticatedCaller,
     requireAdminAccess,
@@ -116,10 +56,9 @@ export function createAdminApiRouter(options?: {
     keyPrefix: 'admin_api',
   });
 
-  // Any authenticated user hitting an admin route or session check passes through token verification first
   router.use(requireAuthenticatedCaller, adminRateLimit);
 
-  // Endpoint allowing authenticated client route guard to report unauthorized route navigation before redirect
+  // Record unauthorized route navigation before client redirect
   router.post('/security-events', async (req: AdminAuthRequest, res: Response) => {
     const caller = req.caller!;
     const rawAction = typeof req.body?.action === 'string' ? req.body.action : '';
@@ -140,51 +79,13 @@ export function createAdminApiRouter(options?: {
         accountStatus: caller.accountStatus,
         ip: req.ip,
       },
-      idToken: caller.idToken,
     });
     res.status(202).json({ recorded: true });
   });
 
   // Verify admin session & return trusted server-resolved role & permissions
-  router.get('/session', requireAdminAccess, async (req: AdminAuthRequest, res: Response) => {
+  router.get('/session', requireAdminAccess, (req: AdminAuthRequest, res: Response) => {
     const caller = req.caller!;
-    if (caller.isBootstrapOwner && caller.email) {
-      try {
-        const existing = await store.getDoc(caller.idToken, `users/${caller.uid}`);
-        if (!existing) {
-          await store.createDoc(
-            caller.idToken,
-            'users',
-            caller.uid,
-            {
-              uid: caller.uid,
-              displayName: caller.email.split('@')[0] || 'REDDOX Super Admin',
-              email: caller.email.toLowerCase(),
-              role: 'SUPER_ADMIN',
-              accountStatus: 'APPROVED',
-              permissions: [...ALL_ADMIN_PERMISSIONS],
-              approvedBy: caller.uid,
-              themePreference: 'system',
-            },
-            ['createdAt', 'updatedAt', 'approvedAt', 'lastLoginAt']
-          );
-        } else if (existing.role !== 'SUPER_ADMIN' || existing.accountStatus !== 'APPROVED') {
-          await store.patchDoc(
-            caller.idToken,
-            `users/${caller.uid}`,
-            {
-              role: 'SUPER_ADMIN',
-              accountStatus: 'APPROVED',
-              permissions: [...ALL_ADMIN_PERMISSIONS],
-              approvedBy: caller.uid,
-            },
-            ['updatedAt', 'approvedAt']
-          );
-        }
-      } catch {
-        // Non-fatal; bootstrap owner claim already grants verified SUPER_ADMIN session
-      }
-    }
     res.json({
       authorized: true,
       uid: caller.uid,
@@ -208,7 +109,6 @@ export function createAdminApiRouter(options?: {
         role: caller.role,
         ip: req.ip,
       },
-      idToken: caller.idToken,
     });
     res.status(202).json({ recorded: true });
   });
@@ -218,17 +118,16 @@ export function createAdminApiRouter(options?: {
     '/dashboard',
     requireAdminAccess,
     requirePermission('VIEW_DASHBOARD'),
-    async (req: AdminAuthRequest, res: Response) => {
+    (req: AdminAuthRequest, res: Response) => {
       try {
         const caller = req.caller!;
-        const [users, projects, videos, clips, exportsList, jobs] = await Promise.all([
-          store.listCol(caller.idToken, 'users'),
-          store.listCol(caller.idToken, 'projects'),
-          store.listCol(caller.idToken, 'sourceVideos'),
-          store.listCol(caller.idToken, 'clips'),
-          store.listCol(caller.idToken, 'exports'),
-          store.listCol(caller.idToken, 'processingJobs'),
-        ]);
+        const db = resolveDb();
+        const users = db.listUsersPublic();
+        const projects = db.listProjects();
+        const videos = db.listSourceVideos();
+        const clips = db.listClips();
+        const exportsList = db.listExports();
+        const jobs = db.listProcessingJobs();
 
         const visibleUsers = isSuperAdminCaller(caller)
           ? users
@@ -269,10 +168,10 @@ export function createAdminApiRouter(options?: {
     '/users',
     requireAdminAccess,
     requirePermission('MANAGE_CUSTOMERS'),
-    async (req: AdminAuthRequest, res: Response) => {
+    (req: AdminAuthRequest, res: Response) => {
       try {
         const caller = req.caller!;
-        const users = await store.listCol(caller.idToken, 'users');
+        const users = resolveDb().listUsersPublic();
         const filtered = isSuperAdminCaller(caller)
           ? users
           : users.filter((u) => u.role === 'CUSTOMER');
@@ -288,11 +187,11 @@ export function createAdminApiRouter(options?: {
     '/approvals',
     requireAdminAccess,
     requirePermission('REVIEW_APPROVALS'),
-    async (req: AdminAuthRequest, res: Response) => {
+    (_req: AdminAuthRequest, res: Response) => {
       try {
-        const caller = req.caller!;
-        const users = await store.listCol(caller.idToken, 'users');
-        const pending = users.filter((u) => u.accountStatus === 'PENDING');
+        const pending = resolveDb()
+          .listUsersPublic()
+          .filter((u) => u.accountStatus === 'PENDING');
         res.json({ pendingUsers: pending });
       } catch (err) {
         res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to load approvals.' });
@@ -308,6 +207,7 @@ export function createAdminApiRouter(options?: {
     async (req: AdminAuthRequest, res: Response) => {
       try {
         const caller = req.caller!;
+        const db = resolveDb();
         const targetUid = String(req.params.targetUid || '');
         const nextStatus = req.body?.accountStatus as AccountStatus;
 
@@ -320,14 +220,13 @@ export function createAdminApiRouter(options?: {
           return;
         }
 
-        const targetDoc = await store.getDoc(caller.idToken, `users/${targetUid}`);
+        const targetDoc = db.getPublicUserByUid(targetUid);
         if (!targetDoc) {
           res.status(404).json({ error: 'Target user not found.' });
           return;
         }
 
-        const targetRole = (targetDoc.role as UserRole) || 'CUSTOMER';
-        if (!canManageTargetAccount(caller, targetUid, targetRole)) {
+        if (!canManageTargetAccount(caller, targetUid, targetDoc.role)) {
           await authDeps.recordSecurityEvent({
             actorId: caller.uid,
             action: 'UNAUTHORIZED_ADMIN_API_REQUEST',
@@ -335,9 +234,8 @@ export function createAdminApiRouter(options?: {
             metadata: {
               reason: 'cannot_modify_self_or_higher_privilege_account',
               callerRole: caller.role,
-              targetRole,
+              targetRole: targetDoc.role,
             },
-            idToken: caller.idToken,
           });
           res.status(403).json({
             error: 'Forbidden: You cannot modify your own privileges or manage administrator accounts.',
@@ -345,23 +243,11 @@ export function createAdminApiRouter(options?: {
           return;
         }
 
-        const previousStatus = String(targetDoc.accountStatus || 'PENDING');
-        const patchFields: Record<string, unknown> = {
+        const previousStatus = targetDoc.accountStatus;
+        db.updateUserAdminFields(targetUid, {
           accountStatus: nextStatus,
-        };
-        if (nextStatus === 'APPROVED') {
-          patchFields.approvedBy = caller.uid;
-        }
-
-        const serverTimeFields =
-          nextStatus === 'APPROVED' ? ['updatedAt', 'approvedAt'] : ['updatedAt'];
-
-        await store.patchDoc(
-          caller.idToken,
-          `users/${targetUid}`,
-          patchFields,
-          serverTimeFields
-        );
+          ...(nextStatus === 'APPROVED' ? { approvedBy: caller.uid } : {}),
+        });
 
         const actionMap: Record<AccountStatus, SecurityEventAction> = {
           APPROVED: previousStatus === 'SUSPENDED' ? 'ACCOUNT_REACTIVATED' : 'ACCOUNT_APPROVED',
@@ -373,11 +259,9 @@ export function createAdminApiRouter(options?: {
           actorId: caller.uid,
           action: actionMap[nextStatus],
           targetId: targetUid,
-          metadata: { previousStatus, nextStatus, targetRole },
-          idToken: caller.idToken,
+          metadata: { previousStatus, nextStatus, targetRole: targetDoc.role },
         });
 
-        const notifId = `notif_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
         const statusTitles: Record<AccountStatus, { title: string; message: string }> = {
           APPROVED: {
             title: 'Account Approved',
@@ -396,22 +280,12 @@ export function createAdminApiRouter(options?: {
             message: 'Your account status was returned to pending review.',
           },
         };
-        await store
-          .createDoc(
-            caller.idToken,
-            'notifications',
-            notifId,
-            {
-              notificationId: notifId,
-              ownerId: targetUid,
-              type: 'ACCOUNT_STATUS',
-              title: statusTitles[nextStatus].title,
-              message: statusTitles[nextStatus].message,
-              read: false,
-            },
-            ['createdAt']
-          )
-          .catch(() => {});
+        db.createNotification({
+          ownerId: targetUid,
+          type: 'ACCOUNT_STATUS',
+          title: statusTitles[nextStatus].title,
+          message: statusTitles[nextStatus].message,
+        });
 
         res.json({ ok: true, uid: targetUid, accountStatus: nextStatus });
       } catch (err) {
@@ -428,6 +302,7 @@ export function createAdminApiRouter(options?: {
     async (req: AdminAuthRequest, res: Response) => {
       try {
         const caller = req.caller!;
+        const db = resolveDb();
         const email = typeof req.body?.email === 'string' ? req.body.email.trim().toLowerCase() : '';
         const uid = typeof req.body?.uid === 'string' ? req.body.uid.trim() : '';
         const displayName =
@@ -443,7 +318,6 @@ export function createAdminApiRouter(options?: {
           return;
         }
 
-        // Ordinary ADMINs with CREATE_ADMINS can never grant CREATE_ADMINS or exceed their own permissions
         if (!isSuperAdminCaller(caller) && requestedPermissions.includes('CREATE_ADMINS')) {
           res.status(403).json({
             error: 'Forbidden: Only SUPER_ADMIN can grant the CREATE_ADMINS capability.',
@@ -463,12 +337,15 @@ export function createAdminApiRouter(options?: {
                 )
             : safeDefaultPerms;
 
-        const allUsers = await store.listCol(caller.idToken, 'users');
-        let target = allUsers.find(
-          (u) =>
-            (uid && u.uid === uid) ||
-            (email && String(u.email || '').toLowerCase() === email)
-        );
+        let target = uid
+          ? db.getPublicUserByUid(uid)
+          : email
+          ? (() => {
+              const row = db.getUserAuthByEmail(email);
+              return row ? db.getPublicUserByUid(row.uid) : null;
+            })()
+          : null;
+
         let createdNewAuthAccount = false;
 
         if (!target) {
@@ -479,7 +356,7 @@ export function createAdminApiRouter(options?: {
           if (!initialPassword) {
             res.status(404).json({
               error:
-                'User account not found. Provide an initial temporary password (min 10 chars) to create their Firebase Auth account directly, or have them register first.',
+                'User account not found. Provide an initial temporary password (min 10 chars) to create their account directly, or have them register first.',
             });
             return;
           }
@@ -490,73 +367,55 @@ export function createAdminApiRouter(options?: {
             return;
           }
 
-          const authRes = await identity.signUp({
-            email,
-            password: initialPassword,
+          const newUid = `usr_${Date.now()}_${crypto.randomBytes(6).toString('hex')}`;
+          target = db.createUser({
+            uid: newUid,
             displayName,
-          });
-          await identity.sendVerification(authRes.idToken).catch(() => {});
-
-          // Step 1: Seed base user doc as new owner (CUSTOMER + PENDING) per Firestore rules
-          await store.createDoc(
-            authRes.idToken,
-            'users',
-            authRes.uid,
-            {
-              uid: authRes.uid,
-              displayName,
-              email,
-              role: 'CUSTOMER',
-              accountStatus: 'PENDING',
-              themePreference: 'system',
-            },
-            ['createdAt', 'updatedAt', 'lastLoginAt']
-          );
-
-          target = { uid: authRes.uid, email, role: 'CUSTOMER', accountStatus: 'PENDING' };
-          createdNewAuthAccount = true;
-        }
-
-        const targetUid = String(target.uid);
-        if (targetUid === caller.uid) {
-          res.status(403).json({ error: 'Cannot alter your own account privileges.' });
-          return;
-        }
-
-        if (!isSuperAdminCaller(caller) && target.role !== 'CUSTOMER') {
-          res.status(403).json({
-            error: 'Forbidden: Only SUPER_ADMIN can modify existing administrator accounts.',
-          });
-          return;
-        }
-
-        await store.patchDoc(
-          caller.idToken,
-          `users/${targetUid}`,
-          {
+            email,
+            passwordHash: hashPassword(initialPassword),
             role: 'ADMIN',
             accountStatus: 'APPROVED',
             permissions,
             approvedBy: caller.uid,
-          },
-          ['updatedAt', 'approvedAt']
-        );
+          });
+          createdNewAuthAccount = true;
+        } else {
+          if (target.uid === caller.uid) {
+            res.status(403).json({ error: 'Cannot alter your own account privileges.' });
+            return;
+          }
+          if (!isSuperAdminCaller(caller) && target.role !== 'CUSTOMER') {
+            res.status(403).json({
+              error: 'Forbidden: Only SUPER_ADMIN can modify existing administrator accounts.',
+            });
+            return;
+          }
+          if (target.role === 'SUPER_ADMIN') {
+            res.status(403).json({ error: 'Forbidden: Cannot alter Super Admin account.' });
+            return;
+          }
+          db.updateUserAdminFields(target.uid, {
+            role: 'ADMIN',
+            accountStatus: 'APPROVED',
+            permissions,
+            approvedBy: caller.uid,
+          });
+        }
 
         await authDeps.recordSecurityEvent({
           actorId: caller.uid,
           action: 'ADMIN_CREATED',
-          targetId: targetUid,
+          targetId: target.uid,
           metadata: {
-            email: target.email || email,
+            email: target.email,
             permissions,
             createdNewAuthAccount,
           },
-          idToken: caller.idToken,
         });
 
         res.json({
           ok: true,
-          uid: targetUid,
+          uid: target.uid,
           role: 'ADMIN',
           accountStatus: 'APPROVED',
           permissions,
@@ -568,7 +427,7 @@ export function createAdminApiRouter(options?: {
     }
   );
 
-  // SUPER_ADMIN ONLY: Send password reset email to an administrator
+  // SUPER_ADMIN ONLY: Issue a fresh temporary password for an administrator
   router.post(
     '/users/:targetUid/password-reset',
     requireAdminAccess,
@@ -576,32 +435,44 @@ export function createAdminApiRouter(options?: {
     async (req: AdminAuthRequest, res: Response) => {
       try {
         const caller = req.caller!;
+        const db = resolveDb();
         const targetUid = String(req.params.targetUid || '');
         if (!isValidId(targetUid)) {
           res.status(400).json({ error: 'Invalid target UID.' });
           return;
         }
-        const targetDoc = await store.getDoc(caller.idToken, `users/${targetUid}`);
-        if (!targetDoc || typeof targetDoc.email !== 'string') {
-          res.status(404).json({ error: 'Target user email not found.' });
+        const targetDoc = db.getPublicUserByUid(targetUid);
+        if (!targetDoc) {
+          res.status(404).json({ error: 'Target user not found.' });
           return;
         }
-        await identity.sendPasswordReset(targetDoc.email);
+
+        const requestedPassword =
+          typeof req.body?.newPassword === 'string' && req.body.newPassword.length >= 10
+            ? req.body.newPassword
+            : generateTempPassword();
+
+        db.updateUserPasswordHash(targetUid, hashPassword(requestedPassword));
+
         await authDeps.recordSecurityEvent({
           actorId: caller.uid,
           action: 'ADMIN_PASSWORD_RESET_REQUESTED',
           targetId: targetUid,
           metadata: { triggeredBySuperAdmin: caller.uid },
-          idToken: caller.idToken,
         });
-        res.json({ ok: true, uid: targetUid });
+
+        res.json({
+          ok: true,
+          uid: targetUid,
+          temporaryPassword: requestedPassword,
+        });
       } catch (err) {
-        res.status(500).json({ error: err instanceof Error ? err.message : 'Password reset dispatch failed.' });
+        res.status(500).json({ error: err instanceof Error ? err.message : 'Password reset failed.' });
       }
     }
   );
 
-  // SUPER_ADMIN ONLY: Assign or revoke roles & granular permissions (prevents duplicate SUPER_ADMIN creation)
+  // SUPER_ADMIN ONLY: Assign or revoke roles & granular permissions
   router.patch(
     '/users/:targetUid/role',
     requireAdminAccess,
@@ -609,6 +480,7 @@ export function createAdminApiRouter(options?: {
     async (req: AdminAuthRequest, res: Response) => {
       try {
         const caller = req.caller!;
+        const db = resolveDb();
         const targetUid = String(req.params.targetUid || '');
         const nextRole = req.body?.role as UserRole | undefined;
         const hasPermsInput = req.body?.permissions !== undefined;
@@ -626,7 +498,7 @@ export function createAdminApiRouter(options?: {
         }
         if (nextRole === 'SUPER_ADMIN') {
           res.status(403).json({
-            error: 'Forbidden: Only the initial Google AI Studio setup process can establish the Super Admin.',
+            error: 'Forbidden: Only the initial platform setup process can establish the Super Admin.',
           });
           return;
         }
@@ -635,7 +507,7 @@ export function createAdminApiRouter(options?: {
           return;
         }
 
-        const targetDoc = await store.getDoc(caller.idToken, `users/${targetUid}`);
+        const targetDoc = db.getPublicUserByUid(targetUid);
         if (!targetDoc) {
           res.status(404).json({ error: 'Target user not found.' });
           return;
@@ -645,23 +517,18 @@ export function createAdminApiRouter(options?: {
           return;
         }
 
-        const resolvedRole = nextRole || ((targetDoc.role as UserRole) || 'CUSTOMER');
+        const resolvedRole = nextRole || targetDoc.role;
         const resolvedPermissions =
           resolvedRole === 'CUSTOMER'
             ? []
             : nextPermissions !== undefined
             ? nextPermissions
-            : normalizePermissions(targetDoc.permissions);
+            : targetDoc.permissions;
 
-        await store.patchDoc(
-          caller.idToken,
-          `users/${targetUid}`,
-          {
-            role: resolvedRole,
-            permissions: resolvedPermissions,
-          },
-          ['updatedAt']
-        );
+        db.updateUserAdminFields(targetUid, {
+          role: resolvedRole,
+          permissions: resolvedPermissions,
+        });
 
         if (nextRole && nextRole !== targetDoc.role) {
           await authDeps.recordSecurityEvent({
@@ -669,7 +536,6 @@ export function createAdminApiRouter(options?: {
             action: 'ROLE_CHANGED',
             targetId: targetUid,
             metadata: { previousRole: targetDoc.role, nextRole: resolvedRole },
-            idToken: caller.idToken,
           });
         }
         if (hasPermsInput) {
@@ -678,7 +544,6 @@ export function createAdminApiRouter(options?: {
             action: 'ADMIN_PERMISSIONS_CHANGED',
             targetId: targetUid,
             metadata: { role: resolvedRole, permissions: resolvedPermissions },
-            idToken: caller.idToken,
           });
         }
 
@@ -697,6 +562,7 @@ export function createAdminApiRouter(options?: {
     async (req: AdminAuthRequest, res: Response) => {
       try {
         const caller = req.caller!;
+        const db = resolveDb();
         const targetUid = String(req.params.targetUid || '');
         if (!isValidId(targetUid)) {
           res.status(400).json({ error: 'Invalid user ID.' });
@@ -706,12 +572,20 @@ export function createAdminApiRouter(options?: {
           res.status(403).json({ error: 'Super Admin cannot delete their own account.' });
           return;
         }
-        await store.deleteDoc(caller.idToken, `users/${targetUid}`);
+        const target = db.getPublicUserByUid(targetUid);
+        if (!target) {
+          res.status(404).json({ error: 'Target user not found.' });
+          return;
+        }
+        if (target.role === 'SUPER_ADMIN') {
+          res.status(403).json({ error: 'Cannot delete a Super Admin account.' });
+          return;
+        }
+        db.deleteUser(targetUid);
         await authDeps.recordSecurityEvent({
           actorId: caller.uid,
           action: 'USER_DELETED',
           targetId: targetUid,
-          idToken: caller.idToken,
         });
         res.json({ ok: true, uid: targetUid });
       } catch (err) {
@@ -725,14 +599,10 @@ export function createAdminApiRouter(options?: {
     '/projects',
     requireAdminAccess,
     requirePermission('MONITOR_PROJECTS'),
-    async (req: AdminAuthRequest, res: Response) => {
+    (_req: AdminAuthRequest, res: Response) => {
       try {
-        const caller = req.caller!;
-        const [projects, clips] = await Promise.all([
-          store.listCol(caller.idToken, 'projects'),
-          store.listCol(caller.idToken, 'clips'),
-        ]);
-        res.json({ projects, clips });
+        const db = resolveDb();
+        res.json({ projects: db.listProjects(), clips: db.listClips() });
       } catch (err) {
         res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to load projects.' });
       }
@@ -744,11 +614,9 @@ export function createAdminApiRouter(options?: {
     '/processing',
     requireAdminAccess,
     requirePermission('MANAGE_PROCESSING'),
-    async (req: AdminAuthRequest, res: Response) => {
+    (_req: AdminAuthRequest, res: Response) => {
       try {
-        const caller = req.caller!;
-        const jobs = await store.listCol(caller.idToken, 'processingJobs');
-        res.json({ jobs });
+        res.json({ jobs: resolveDb().listProcessingJobs() });
       } catch (err) {
         res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to load jobs.' });
       }
@@ -759,24 +627,23 @@ export function createAdminApiRouter(options?: {
     '/processing/:jobId',
     requireAdminAccess,
     requirePermission('MANAGE_PROCESSING'),
-    async (req: AdminAuthRequest, res: Response) => {
+    (req: AdminAuthRequest, res: Response) => {
       try {
-        const caller = req.caller!;
         const jobId = String(req.params.jobId || '');
         const status = typeof req.body?.status === 'string' ? req.body.status : '';
         if (!isValidId(jobId) || !['CANCELLED', 'FAILED'].includes(status)) {
           res.status(400).json({ error: 'Invalid jobId or status update.' });
           return;
         }
-        await store.patchDoc(
-          caller.idToken,
-          `processingJobs/${jobId}`,
-          {
-            status,
-            currentStage: status === 'CANCELLED' ? 'Cancelled by administrator' : 'Marked failed by administrator',
-          },
-          ['updatedAt']
-        );
+        const ok = resolveDb().updateProcessingJob(jobId, null, {
+          status,
+          currentStage:
+            status === 'CANCELLED' ? 'Cancelled by administrator' : 'Marked failed by administrator',
+        });
+        if (!ok) {
+          res.status(404).json({ error: 'Processing job not found.' });
+          return;
+        }
         res.json({ ok: true, jobId, status });
       } catch (err) {
         res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to update job.' });
@@ -789,14 +656,12 @@ export function createAdminApiRouter(options?: {
     '/storage',
     requireAdminAccess,
     requirePermission('MONITOR_USAGE_STORAGE'),
-    async (req: AdminAuthRequest, res: Response) => {
+    (_req: AdminAuthRequest, res: Response) => {
       try {
-        const caller = req.caller!;
-        const [videos, exportsList, usageRecords] = await Promise.all([
-          store.listCol(caller.idToken, 'sourceVideos'),
-          store.listCol(caller.idToken, 'exports'),
-          store.listCol(caller.idToken, 'usageRecords'),
-        ]);
+        const db = resolveDb();
+        const videos = db.listSourceVideos();
+        const exportsList = db.listExports();
+        const usageRecords = db.listUsageRecords();
         const totalBytes =
           videos.reduce((s, v) => s + Number(v.fileSize || 0), 0) +
           exportsList.reduce((s, e) => s + Number(e.fileSize || 0), 0);
@@ -819,16 +684,12 @@ export function createAdminApiRouter(options?: {
     '/settings',
     requireAdminAccess,
     requireSuperAdmin,
-    async (req: AdminAuthRequest, res: Response) => {
+    (_req: AdminAuthRequest, res: Response) => {
       try {
-        const caller = req.caller!;
-        const [limitsDoc, aiDoc] = await Promise.all([
-          store.getDoc(caller.idToken, 'systemSettings/limits'),
-          store.getDoc(caller.idToken, 'systemSettings/aiConfig'),
-        ]);
+        const db = resolveDb();
         res.json({
-          limits: limitsDoc?.settingValue || null,
-          aiConfig: aiDoc?.settingValue || null,
+          limits: db.getSystemSetting('limits'),
+          aiConfig: db.getSystemSetting('aiConfig'),
           geminiConfigured: isGeminiConfigured(),
           r2Configured: isR2Configured(),
         });
@@ -845,6 +706,7 @@ export function createAdminApiRouter(options?: {
     async (req: AdminAuthRequest, res: Response) => {
       try {
         const caller = req.caller!;
+        const db = resolveDb();
         const settingId = req.body?.settingId;
         const settingValue = req.body?.settingValue;
         if (
@@ -857,23 +719,13 @@ export function createAdminApiRouter(options?: {
           return;
         }
 
-        await store.setDoc(
-          caller.idToken,
-          `systemSettings/${settingId}`,
-          {
-            settingId,
-            settingValue,
-            updatedBy: caller.uid,
-          },
-          ['updatedAt']
-        );
+        db.setSystemSetting(settingId, settingValue as Record<string, unknown>, caller.uid);
 
         await authDeps.recordSecurityEvent({
           actorId: caller.uid,
           action: 'SYSTEM_SETTINGS_UPDATED',
           targetId: settingId,
           metadata: settingValue as Record<string, unknown>,
-          idToken: caller.idToken,
         });
 
         res.json({ ok: true, settingId });
@@ -888,19 +740,16 @@ export function createAdminApiRouter(options?: {
     '/audit-logs',
     requireAdminAccess,
     requireSuperAdmin,
-    async (req: AdminAuthRequest, res: Response) => {
+    (_req: AdminAuthRequest, res: Response) => {
       try {
-        const caller = req.caller!;
-        const persisted = await store.listCol(caller.idToken, 'auditLogs');
+        const persisted = resolveDb().listAuditLogs(250);
         const inMemory = getRecentSecurityEvents();
 
-        // Merge & deduplicate by logId, sorting newest first
         const seen = new Set<string>();
         const merged: Array<Record<string, unknown>> = [];
         for (const row of [...inMemory, ...persisted]) {
-          const id = String(row.logId || '');
-          if (id && !seen.has(id)) {
-            seen.add(id);
+          if (row.logId && !seen.has(row.logId)) {
+            seen.add(row.logId);
             merged.push({ ...row });
           }
         }

@@ -1,128 +1,89 @@
 import type { NextFunction, Request, Response } from 'express';
-import { getApp, getApps, initializeApp } from 'firebase-admin/app';
-import { getAuth } from 'firebase-admin/auth';
-import { env } from '../config/env.ts';
+import { getDatabase, type CliporaDatabase, type StoredUserRow } from '../db/database.ts';
 import {
   ALL_ADMIN_PERMISSIONS,
-  BOOTSTRAP_OWNER_EMAIL,
   hasAdminPermission,
   isApprovedAdminCaller,
   isSuperAdminCaller,
   normalizePermissions,
-  type AccountStatus,
   type AdminPermission,
   type TrustedCaller,
-  type UserRole,
 } from '../security/rbac.ts';
-import { getFirestoreDocument } from '../services/firestoreRest.ts';
+import { verifySessionToken } from '../security/sessionToken.ts';
 import { logSecurityEvent, type SecurityEventAction } from '../services/securityMonitor.ts';
-
-export interface DecodedFirebaseIdentity {
-  uid: string;
-  email?: string;
-  emailVerified: boolean;
-  claimsRole?: string;
-  claimsPermissions?: unknown;
-}
+import { extractRequestToken } from './auth.ts';
 
 export interface AdminAuthRequest extends Request {
   caller?: TrustedCaller;
 }
 
 export interface AdminAuthDeps {
-  verifyToken: (idToken: string) => Promise<DecodedFirebaseIdentity>;
-  fetchUserRecord: (
-    idToken: string,
-    uid: string
-  ) => Promise<Record<string, unknown> | null>;
+  verifyToken: (token: string) => Promise<{ uid: string }>;
+  fetchUserRecord: (uid: string) => Promise<StoredUserRow | null>;
   recordSecurityEvent: (params: {
     actorId: string;
     action: SecurityEventAction;
     targetId: string;
     metadata?: Record<string, unknown>;
-    idToken?: string;
   }) => Promise<unknown>;
 }
 
-function getFirebaseAdminAuth() {
-  if (!env.firebaseProjectId || env.firebaseProjectId === 'remixed-project-id') {
-    throw new Error('Firebase project is not configured.');
-  }
-  const app = getApps().length
-    ? getApp()
-    : initializeApp({ projectId: env.firebaseProjectId });
-  return getAuth(app);
+export function createDefaultAdminAuthDeps(db?: CliporaDatabase): AdminAuthDeps {
+  const resolveDb = () => db ?? getDatabase();
+  return {
+    async verifyToken(token: string) {
+      const verified = verifySessionToken(token);
+      if (!verified) {
+        throw new Error('Invalid or expired session token.');
+      }
+      return { uid: verified.uid };
+    },
+    async fetchUserRecord(uid: string) {
+      return resolveDb().getUserAuthByUid(uid);
+    },
+    async recordSecurityEvent(params) {
+      return logSecurityEvent({ ...params, db: resolveDb() });
+    },
+  };
 }
 
-export const defaultAdminAuthDeps: AdminAuthDeps = {
-  async verifyToken(idToken: string): Promise<DecodedFirebaseIdentity> {
-    const adminAuth = getFirebaseAdminAuth();
-    const decoded = await adminAuth.verifyIdToken(idToken);
-    return {
-      uid: decoded.uid,
-      email: typeof decoded.email === 'string' ? decoded.email : undefined,
-      emailVerified: Boolean(decoded.email_verified),
-      claimsRole: typeof decoded.role === 'string' ? decoded.role : undefined,
-      claimsPermissions: decoded.permissions,
-    };
-  },
-  async fetchUserRecord(idToken: string, uid: string) {
-    return getFirestoreDocument(idToken, `users/${uid}`);
-  },
-  recordSecurityEvent: logSecurityEvent,
-};
+export const defaultAdminAuthDeps: AdminAuthDeps = createDefaultAdminAuthDeps();
 
-function parseRole(raw: unknown): UserRole {
-  if (raw === 'SUPER_ADMIN' || raw === 'ADMIN' || raw === 'CUSTOMER') {
-    return raw;
-  }
-  return 'CUSTOMER';
-}
-
-function parseAccountStatus(raw: unknown): AccountStatus {
-  if (raw === 'APPROVED' || raw === 'PENDING' || raw === 'REJECTED' || raw === 'SUSPENDED') {
-    return raw;
-  }
-  return 'PENDING';
-}
+const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 export function createAdminMiddleware(deps: AdminAuthDeps = defaultAdminAuthDeps) {
   /**
-   * Authenticates caller via Firebase ID token and resolves trusted role/status/permissions
-   * from server-side Firestore lookup & verified token claims (never from browser payload).
+   * Authenticates caller via signed session token (Bearer header or HttpOnly cookie)
+   * and resolves trusted role/status/permissions from server-side database lookup.
    */
   const requireAuthenticatedCaller = async (
     req: AdminAuthRequest,
     res: Response,
     next: NextFunction
   ): Promise<void> => {
-    const authHeader = req.headers.authorization;
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    const { token, viaCookie } = extractRequestToken(req);
+    if (!token) {
       await deps.recordSecurityEvent({
         actorId: 'anonymous',
         action: 'UNAUTHORIZED_ADMIN_API_REQUEST',
         targetId: req.originalUrl || req.path,
-        metadata: { reason: 'missing_bearer_token', ip: req.ip },
+        metadata: { reason: 'missing_session_token', ip: req.ip },
       });
-      res.status(401).json({ error: 'Authentication required. Missing Bearer token.' });
+      res.status(401).json({ error: 'Authentication required. Please sign in.' });
       return;
     }
 
-    const idToken = authHeader.slice('Bearer '.length).trim();
-    if (!idToken || idToken.length > 8192) {
-      await deps.recordSecurityEvent({
-        actorId: 'anonymous',
-        action: 'FAILED_ADMIN_LOGIN',
-        targetId: req.originalUrl || req.path,
-        metadata: { reason: 'malformed_token', ip: req.ip },
-      });
-      res.status(401).json({ error: 'Invalid authentication token format.' });
-      return;
+    if (viaCookie && MUTATING_METHODS.has(req.method.toUpperCase())) {
+      const xrw = String(req.headers['x-requested-with'] || '');
+      if (xrw !== 'CliporaApp') {
+        res.status(403).json({ error: 'Forbidden: missing anti-CSRF request header.' });
+        return;
+      }
     }
 
-    let decoded: DecodedFirebaseIdentity;
+    let identity: { uid: string };
     try {
-      decoded = await deps.verifyToken(idToken);
+      identity = await deps.verifyToken(token);
     } catch (err) {
       await deps.recordSecurityEvent({
         actorId: 'anonymous',
@@ -133,59 +94,37 @@ export function createAdminMiddleware(deps: AdminAuthDeps = defaultAdminAuthDeps
           ip: req.ip,
         },
       });
-      res.status(401).json({ error: 'Unauthorized: invalid or expired authentication token.' });
+      res.status(401).json({ error: 'Unauthorized: invalid or expired session.' });
       return;
     }
 
-    const isBootstrapOwner =
-      Boolean(decoded.emailVerified) &&
-      typeof decoded.email === 'string' &&
-      decoded.email.toLowerCase() === BOOTSTRAP_OWNER_EMAIL;
-
-    let userRecord: Record<string, unknown> | null = null;
-    try {
-      userRecord = await deps.fetchUserRecord(idToken, decoded.uid);
-    } catch (err) {
-      res.status(503).json({
-        error: err instanceof Error ? err.message : 'Unable to verify user authorization state.',
-      });
+    const userRecord = await deps.fetchUserRecord(identity.uid);
+    if (!userRecord) {
+      res.status(401).json({ error: 'Unauthorized: account record not found.' });
       return;
     }
 
-    // Trusted role resolution: verified custom claims or server-fetched Firestore profile;
-    // NEVER read role/status/permissions from browser headers or body.
-    const storedRole = parseRole(userRecord?.role ?? decoded.claimsRole);
-    const storedStatus = parseAccountStatus(userRecord?.accountStatus);
-    const storedPermissions = normalizePermissions(
-      userRecord?.permissions ?? decoded.claimsPermissions
-    );
-
-    const effectiveRole: UserRole = isBootstrapOwner ? 'SUPER_ADMIN' : storedRole;
-    const effectiveStatus: AccountStatus = isBootstrapOwner ? 'APPROVED' : storedStatus;
     const effectivePermissions: AdminPermission[] =
-      effectiveRole === 'SUPER_ADMIN'
+      userRecord.role === 'SUPER_ADMIN'
         ? [...ALL_ADMIN_PERMISSIONS]
-        : effectiveRole === 'ADMIN'
-        ? storedPermissions
+        : userRecord.role === 'ADMIN'
+        ? normalizePermissions(userRecord.permissions)
         : [];
 
     req.caller = {
-      uid: decoded.uid,
-      email: decoded.email,
-      emailVerified: decoded.emailVerified,
-      role: effectiveRole,
-      accountStatus: effectiveStatus,
+      uid: userRecord.uid,
+      email: userRecord.email,
+      emailVerified: true,
+      role: userRecord.role,
+      accountStatus: userRecord.accountStatus,
       permissions: effectivePermissions,
-      isBootstrapOwner,
-      idToken,
+      isBootstrapOwner: userRecord.role === 'SUPER_ADMIN' && userRecord.accountStatus === 'APPROVED',
+      idToken: token,
     };
 
     next();
   };
 
-  /**
-   * Requires caller to be an APPROVED ADMIN or SUPER_ADMIN.
-   */
   const requireAdminAccess = async (
     req: AdminAuthRequest,
     res: Response,
@@ -207,7 +146,6 @@ export function createAdminMiddleware(deps: AdminAuthDeps = defaultAdminAuthDeps
           accountStatus: caller.accountStatus,
           ip: req.ip,
         },
-        idToken: caller.idToken,
       });
       res.status(403).json({
         error: 'Forbidden: Administrator authorization and approved account status required.',
@@ -218,9 +156,6 @@ export function createAdminMiddleware(deps: AdminAuthDeps = defaultAdminAuthDeps
     next();
   };
 
-  /**
-   * Requires a specific granular AdminPermission (SUPER_ADMIN always passes).
-   */
   const requirePermission = (permission: AdminPermission) => {
     return async (
       req: AdminAuthRequest,
@@ -241,7 +176,6 @@ export function createAdminMiddleware(deps: AdminAuthDeps = defaultAdminAuthDeps
             requiredPermission: permission,
             callerRole: caller.role,
           },
-          idToken: caller.idToken,
         });
         res.status(403).json({
           error: `Forbidden: Missing required administrator permission (${permission}).`,
@@ -252,9 +186,6 @@ export function createAdminMiddleware(deps: AdminAuthDeps = defaultAdminAuthDeps
     };
   };
 
-  /**
-   * Strictly requires SUPER_ADMIN role. Standard ADMINs receive HTTP 403.
-   */
   const requireSuperAdmin = async (
     req: AdminAuthRequest,
     res: Response,
@@ -274,7 +205,6 @@ export function createAdminMiddleware(deps: AdminAuthDeps = defaultAdminAuthDeps
           reason: 'super_admin_only',
           callerRole: caller.role,
         },
-        idToken: caller.idToken,
       });
       res.status(403).json({
         error: 'Forbidden: SUPER_ADMIN authorization required for this operation.',

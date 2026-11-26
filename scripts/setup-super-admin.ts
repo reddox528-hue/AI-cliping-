@@ -55,8 +55,8 @@ function askHidden(prompt: string): Promise<string> {
 }
 
 async function main() {
-  console.log('\n=== REDDOX Clipora AI — Initial Super Admin Setup (Google AI Studio) ===');
-  console.log(`Firebase Project: ${env.firebaseProjectId}`);
+  console.log('\n=== REDDOX Clipora AI — Initial Super Admin Setup ===');
+  console.log(`Database Path:          ${env.dbPath}`);
   console.log(`Configured Owner Email: ${env.superAdminEmail}\n`);
 
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -88,22 +88,11 @@ async function main() {
       setupSecret: setupSecret || undefined,
     });
 
-    console.log('\n[OK] Super Admin Firebase Auth account established!');
+    console.log('\n[OK] Super Admin account established!');
     console.log(`UID:   ${result.uid}`);
     console.log(`Email: ${result.email}`);
     console.log(`Role:  ${result.role}`);
-
-    if (!result.emailVerified) {
-      console.log('\nIMPORTANT NEXT STEP:');
-      console.log(
-        result.verificationEmailSent
-          ? `A verification email has been sent to ${result.email}. Click the verification link in your inbox before signing in.`
-          : `Verify your email address for ${result.email} before signing in.`
-      );
-      console.log('Then visit your live app, click "Admin Access" at the bottom-right footer, and sign in.');
-    } else {
-      console.log('\nYou can now sign in from any device via the "Admin Access" footer link (/secure-control-panel).');
-    }
+    console.log('\nYou can now sign in via the "Admin Access" footer link (/secure-control-panel).');
   } catch (err) {
     rl.close();
     console.error('\nSetup aborted:', err instanceof Error ? err.message : String(err));

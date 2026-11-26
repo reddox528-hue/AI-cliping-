@@ -19,7 +19,7 @@ import {
   makeId,
   recordUsage,
   updateExportRecord,
-} from '../../services/firebase/firestoreService';
+} from '../../services/data/workspaceService';
 import {
   deleteLocalMediaBlob,
   resolveMediaBlob,
@@ -281,14 +281,14 @@ export function GeneratedClipsPage({
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search clip title, topic, or hook..."
-            className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#0E1424] text-sm"
+            className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#161926] text-sm"
           />
         </div>
 
         <select
           value={ratioFilter}
           onChange={(e) => setRatioFilter(e.target.value as typeof ratioFilter)}
-          className="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#0E1424] text-sm"
+          className="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#161926] text-sm"
         >
           <option value="ALL">All Aspect Ratios</option>
           <option value="9:16">9:16 Portrait</option>
@@ -299,7 +299,7 @@ export function GeneratedClipsPage({
         <select
           value={sortBy}
           onChange={(e) => setSortBy(e.target.value as SortOption)}
-          className="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#0E1424] text-sm"
+          className="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#161926] text-sm"
         >
           <option value="score">Sort: Highest Quality Score</option>
           <option value="shortest">Sort: Shortest Duration</option>
@@ -310,7 +310,7 @@ export function GeneratedClipsPage({
       </div>
 
       {previewClip && (
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0E1424] p-5 grid md:grid-cols-12 gap-6 items-center">
+        <div className="rounded-2xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926] p-5 grid md:grid-cols-12 gap-6 items-center">
           <div className="md:col-span-5 bg-slate-950 rounded-xl overflow-hidden flex items-center justify-center max-h-80">
             {previewUrl ? (
               <video src={previewUrl} controls autoPlay className="max-h-80 w-auto" />
@@ -348,7 +348,7 @@ export function GeneratedClipsPage({
               <button
                 type="button"
                 onClick={() => onOpenEditor(previewClip)}
-                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold"
               >
                 <Sliders className="w-3.5 h-3.5" />
                 Open in Video Editor
@@ -367,7 +367,7 @@ export function GeneratedClipsPage({
       )}
 
       {sortedClips.length === 0 ? (
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0E1424] p-12 text-center">
+        <div className="rounded-2xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926] p-12 text-center">
           <Scissors className="w-8 h-8 text-slate-400 mx-auto mb-3" />
           <p className="text-sm font-semibold text-slate-900 dark:text-white">
             No generated clips yet
@@ -378,7 +378,7 @@ export function GeneratedClipsPage({
           <button
             type="button"
             onClick={onGoCreate}
-            className="mt-4 px-4 py-2 rounded-xl bg-blue-600 text-white text-xs font-semibold"
+            className="mt-4 px-4 py-2 rounded-xl bg-purple-600 text-white text-xs font-semibold"
           >
             Create New Clips
           </button>
@@ -390,7 +390,7 @@ export function GeneratedClipsPage({
             return (
               <div
                 key={clip.clipId}
-                className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0E1424] p-5 flex flex-col justify-between gap-4"
+                className="rounded-2xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926] p-5 flex flex-col justify-between gap-4"
               >
                 <div>
                   <div className="flex items-start justify-between gap-3">
@@ -398,10 +398,10 @@ export function GeneratedClipsPage({
                       type="button"
                       onClick={() => toggleSelect(clip.clipId)}
                       aria-label={`Select ${clip.title}`}
-                      className="text-slate-400 hover:text-blue-600 mt-0.5 shrink-0"
+                      className="text-slate-400 hover:text-purple-600 mt-0.5 shrink-0"
                     >
                       {checked ? (
-                        <CheckSquare className="w-4 h-4 text-blue-600" />
+                        <CheckSquare className="w-4 h-4 text-purple-600" />
                       ) : (
                         <Square className="w-4 h-4" />
                       )}
@@ -415,7 +415,7 @@ export function GeneratedClipsPage({
                         {clip.duration.toFixed(1)}s · {clip.aspectRatio}
                       </p>
                     </div>
-                    <span className="font-mono text-xs font-bold text-blue-600 dark:text-blue-400 tabular-nums shrink-0">
+                    <span className="font-mono text-xs font-bold text-purple-600 dark:text-purple-400 tabular-nums shrink-0">
                       {clip.score}/100
                     </span>
                   </div>
@@ -425,7 +425,7 @@ export function GeneratedClipsPage({
                   </p>
                 </div>
 
-                <div className="pt-3 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-2">
+                <div className="pt-3 border-t border-slate-100 dark:border-[#24283B] flex items-center justify-between gap-2">
                   <div className="flex items-center gap-1.5">
                     <button
                       type="button"
@@ -438,7 +438,7 @@ export function GeneratedClipsPage({
                     <button
                       type="button"
                       onClick={() => onOpenEditor(clip)}
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold"
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-purple-600 hover:bg-purple-700 text-white text-xs font-semibold"
                     >
                       <Sliders className="w-3 h-3" />
                       Edit

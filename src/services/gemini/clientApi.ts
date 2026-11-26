@@ -1,16 +1,8 @@
 import type { ClipRecord, TranscriptSegment } from '../../types/clipora';
-import { auth } from '../firebase/client';
+import { buildAuthHeaders } from '../auth/sessionStore';
 
-export async function getAuthHeaders(forceRefresh = false): Promise<Record<string, string>> {
-  const user = auth.currentUser;
-  if (!user) {
-    throw new Error('You must be signed in to perform this action.');
-  }
-  const token = await user.getIdToken(forceRefresh);
-  return {
-    'Content-Type': 'application/json',
-    Authorization: `Bearer ${token}`,
-  };
+export async function getAuthHeaders(_forceRefresh = false): Promise<Record<string, string>> {
+  return buildAuthHeaders();
 }
 
 export interface ServerCapabilities {
@@ -21,7 +13,7 @@ export interface ServerCapabilities {
 }
 
 export async function fetchServerCapabilities(): Promise<ServerCapabilities> {
-  const res = await fetch('/api/health');
+  const res = await fetch('/api/health', { credentials: 'same-origin' });
   if (!res.ok) {
     throw new Error('Backend server is unreachable.');
   }
@@ -39,6 +31,7 @@ export async function probeRemoteVideoUrl(url: string): Promise<{
   const headers = await getAuthHeaders();
   const res = await fetch('/api/videos/probe-url', {
     method: 'POST',
+    credentials: 'same-origin',
     headers,
     body: JSON.stringify({ url }),
   });
@@ -58,6 +51,7 @@ export async function transcribeAudioViaServer(params: {
   const headers = await getAuthHeaders();
   const res = await fetch('/api/ai/transcribe', {
     method: 'POST',
+    credentials: 'same-origin',
     headers,
     body: JSON.stringify(params),
   });
@@ -89,6 +83,7 @@ export async function analyzeVideoViaServer(params: {
   const headers = await getAuthHeaders();
   const res = await fetch('/api/ai/analyze-clips', {
     method: 'POST',
+    credentials: 'same-origin',
     headers,
     body: JSON.stringify(params),
   });

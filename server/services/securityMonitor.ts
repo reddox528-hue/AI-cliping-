@@ -1,5 +1,5 @@
 import crypto from 'crypto';
-import { createFirestoreDocument } from './firestoreRest.ts';
+import { getDatabase, type CliporaDatabase } from '../db/database.ts';
 
 export type SecurityEventAction =
   | 'ADMIN_LOGIN'
@@ -8,6 +8,7 @@ export type SecurityEventAction =
   | 'SUPER_ADMIN_INITIALIZED'
   | 'UNAUTHORIZED_ADMIN_ROUTE_ACCESS'
   | 'UNAUTHORIZED_ADMIN_API_REQUEST'
+  | 'USER_REGISTERED'
   | 'ROLE_CHANGED'
   | 'ACCOUNT_APPROVED'
   | 'ACCOUNT_REJECTED'
@@ -39,7 +40,7 @@ export async function logSecurityEvent(params: {
   action: SecurityEventAction;
   targetId: string;
   metadata?: Record<string, unknown>;
-  idToken?: string;
+  db?: CliporaDatabase;
 }): Promise<SecurityEventEntry> {
   const logId = `sec_${Date.now()}_${crypto.randomBytes(5).toString('hex')}`;
   const entry: SecurityEventEntry = {
@@ -60,27 +61,12 @@ export async function logSecurityEvent(params: {
     `[SECURITY_EVENT] action=${entry.action} actor=${entry.actorId} target=${entry.targetId}`
   );
 
-  // Persist to immutable Firestore auditLogs when a verified caller token is present
-  if (params.idToken) {
-    try {
-      await createFirestoreDocument(
-        params.idToken,
-        'auditLogs',
-        logId,
-        {
-          logId,
-          actorId: entry.actorId,
-          action: entry.action,
-          targetId: entry.targetId,
-          metadata: entry.metadata,
-        },
-        ['timestamp']
-      );
-    } catch (err) {
-      // Never crash request handling if persistence fails in tests or unapproved state
-      if (process.env.NODE_ENV !== 'test') {
-        console.warn('Firestore security audit log write skipped:', err);
-      }
+  try {
+    const database = params.db ?? getDatabase();
+    database.insertAuditLog(entry);
+  } catch (err) {
+    if (process.env.NODE_ENV !== 'test') {
+      console.warn('SQLite audit log write skipped:', err);
     }
   }
 

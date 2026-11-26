@@ -1,18 +1,10 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import {
-  createUserWithEmailAndPassword,
-  onAuthStateChanged,
-  sendEmailVerification,
-  sendPasswordResetEmail,
-  signInWithEmailAndPassword,
-  signInWithPopup,
-  signOut,
-  updateProfile,
-  type User,
-} from 'firebase/auth';
-import { collection, doc, onSnapshot, query, where } from 'firebase/firestore';
-import { auth, db, googleProvider, handleFirestoreError, OperationType } from '../services/firebase/client';
-import { ensureUserProfile, getSystemSettings } from '../services/firebase/firestoreService';
+  apiFetch,
+  clearSessionToken,
+  setSessionToken,
+} from '../services/auth/sessionStore';
+import { getSystemSettings, markNotificationRead } from '../services/data/workspaceService';
 import {
   DEFAULT_AI_CONFIG,
   DEFAULT_LIMITS_CONFIG,
@@ -22,19 +14,34 @@ import {
   type UserProfile,
 } from '../types/clipora';
 
+interface AuthSessionResponse {
+  user: UserProfile;
+  token?: string;
+  notifications?: AppNotification[];
+  settings?: {
+    limits?: Partial<SystemLimitsConfig> | null;
+    aiConfig?: Partial<AIConfig> | null;
+  };
+}
+
 interface AuthContextValue {
-  firebaseUser: User | null;
+  user: UserProfile | null;
   profile: UserProfile | null;
   notifications: AppNotification[];
   limits: SystemLimitsConfig;
   aiConfig: AIConfig;
   loading: boolean;
   authError: string | null;
-  signInWithGoogle: () => Promise<void>;
-  signInWithEmail: (email: string, password: string) => Promise<void>;
-  registerWithEmail: (displayName: string, email: string, password: string) => Promise<void>;
-  resetPassword: (email: string) => Promise<void>;
-  resendVerification: () => Promise<void>;
+  signInWithEmail: (email: string, password: string) => Promise<UserProfile>;
+  registerWithEmail: (displayName: string, email: string, password: string) => Promise<UserProfile>;
+  setupInitialSuperAdmin: (params: {
+    displayName?: string;
+    email: string;
+    password: string;
+    setupSecret?: string;
+  }) => Promise<UserProfile>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
+  markNotificationAsRead: (notificationId: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   reloadSettings: () => Promise<void>;
@@ -43,7 +50,6 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [limits, setLimits] = useState<SystemLimitsConfig>(DEFAULT_LIMITS_CONFIG);
@@ -57,163 +63,135 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAiConfig(res.aiConfig);
   }, []);
 
-  const syncProfile = useCallback(async (user: User) => {
-    const synced = await ensureUserProfile({
-      uid: user.uid,
-      email: user.email || '',
-      displayName: user.displayName || user.email?.split('@')[0] || 'Creator',
-      photoURL: user.photoURL || undefined,
-      emailVerified: user.emailVerified,
-    });
-    setProfile(synced);
-    if (synced.accountStatus === 'APPROVED') {
-      await reloadSettings();
-    }
-  }, [reloadSettings]);
-
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, async (user) => {
-      setFirebaseUser(user);
+  const refreshProfile = useCallback(async () => {
+    try {
+      const data = await apiFetch<AuthSessionResponse>('/api/auth/session');
+      if (data.token) {
+        setSessionToken(data.token);
+      }
+      setProfile(data.user);
+      setNotifications(data.notifications || []);
+      if (data.settings?.limits) {
+        setLimits({ ...DEFAULT_LIMITS_CONFIG, ...data.settings.limits });
+      }
+      if (data.settings?.aiConfig) {
+        setAiConfig({ ...DEFAULT_AI_CONFIG, ...data.settings.aiConfig });
+      }
       setAuthError(null);
+    } catch {
+      clearSessionToken();
+      setProfile(null);
+      setNotifications([]);
+    }
+  }, []);
 
-      if (!user) {
-        setProfile(null);
-        setNotifications([]);
-        setLoading(false);
-        return;
-      }
-
-      try {
-        await syncProfile(user);
-      } catch (err) {
-        setAuthError(err instanceof Error ? err.message : 'Unable to load user profile.');
-      } finally {
-        setLoading(false);
-      }
-    });
-
-    return () => unsub();
-  }, [syncProfile]);
-
-  // Real-time listener on user profile & notifications once signed in
   useEffect(() => {
-    if (!firebaseUser) return;
-
-    const userUnsub = onSnapshot(
-      doc(db, 'users', firebaseUser.uid),
-      (snap) => {
-        if (snap.exists()) {
-          const d = snap.data() as Record<string, unknown>;
-          setProfile((prev) => ({
-            uid: String(d.uid || firebaseUser.uid),
-            displayName: String(d.displayName || prev?.displayName || 'Creator'),
-            email: String(d.email || prev?.email || ''),
-            photoURL: d.photoURL ? String(d.photoURL) : undefined,
-            role: (d.role as UserProfile['role']) || 'CUSTOMER',
-            accountStatus: (d.accountStatus as UserProfile['accountStatus']) || 'PENDING',
-            permissions: Array.isArray(d.permissions)
-              ? (d.permissions as UserProfile['permissions'])
-              : undefined,
-            createdAt: prev?.createdAt || new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-            themePreference: (d.themePreference as UserProfile['themePreference']) || 'system',
-          }));
-        }
-      },
-      (err) => {
-        handleFirestoreError(err, OperationType.GET, `users/${firebaseUser.uid}`);
+    let active = true;
+    const init = async () => {
+      try {
+        await refreshProfile();
+      } finally {
+        if (active) setLoading(false);
       }
-    );
-
-    const notifQuery = query(
-      collection(db, 'notifications'),
-      where('ownerId', '==', firebaseUser.uid)
-    );
-    const notifUnsub = onSnapshot(
-      notifQuery,
-      (snap) => {
-        const items: AppNotification[] = snap.docs.map((docSnap) => {
-          const d = docSnap.data() as Record<string, unknown>;
-          return {
-            notificationId: String(d.notificationId),
-            ownerId: String(d.ownerId),
-            type: d.type as AppNotification['type'],
-            title: String(d.title || ''),
-            message: String(d.message || ''),
-            read: Boolean(d.read),
-            createdAt:
-              d.createdAt && typeof (d.createdAt as { toDate?: () => Date }).toDate === 'function'
-                ? (d.createdAt as { toDate: () => Date }).toDate().toISOString()
-                : new Date().toISOString(),
-          };
-        });
-        items.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-        setNotifications(items);
-      },
-      (err) => {
-        handleFirestoreError(err, OperationType.LIST, 'notifications');
-      }
-    );
-
-    return () => {
-      userUnsub();
-      notifUnsub();
     };
-  }, [firebaseUser]);
+    void init();
+    return () => {
+      active = false;
+    };
+  }, [refreshProfile]);
 
-  const signInWithGoogle = async () => {
+  const signInWithEmail = async (email: string, password: string): Promise<UserProfile> => {
     setAuthError(null);
-    await signInWithPopup(auth, googleProvider);
+    const data = await apiFetch<{ token: string; user: UserProfile }>('/api/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email: email.trim(), password }),
+    });
+    setSessionToken(data.token);
+    setProfile(data.user);
+    await refreshProfile();
+    return data.user;
   };
 
-  const signInWithEmail = async (email: string, password: string) => {
+  const registerWithEmail = async (
+    displayName: string,
+    email: string,
+    password: string
+  ): Promise<UserProfile> => {
     setAuthError(null);
-    await signInWithEmailAndPassword(auth, email.trim(), password);
+    const data = await apiFetch<{ token: string; user: UserProfile }>('/api/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({
+        displayName: displayName.trim(),
+        email: email.trim(),
+        password,
+      }),
+    });
+    setSessionToken(data.token);
+    setProfile(data.user);
+    await refreshProfile();
+    return data.user;
   };
 
-  const registerWithEmail = async (displayName: string, email: string, password: string) => {
+  const setupInitialSuperAdmin = async (params: {
+    displayName?: string;
+    email: string;
+    password: string;
+    setupSecret?: string;
+  }): Promise<UserProfile> => {
     setAuthError(null);
-    const cred = await createUserWithEmailAndPassword(auth, email.trim(), password);
-    await updateProfile(cred.user, { displayName: displayName.trim() });
-    await sendEmailVerification(cred.user).catch(() => {});
-    await syncProfile(cred.user);
+    const data = await apiFetch<{ token: string; user: UserProfile }>(
+      '/api/auth/setup-super-admin',
+      {
+        method: 'POST',
+        body: JSON.stringify(params),
+      }
+    );
+    setSessionToken(data.token);
+    setProfile(data.user);
+    await refreshProfile();
+    return data.user;
   };
 
-  const resetPassword = async (email: string) => {
-    setAuthError(null);
-    await sendPasswordResetEmail(auth, email.trim());
+  const changePassword = async (currentPassword: string, newPassword: string): Promise<void> => {
+    await apiFetch('/api/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
   };
 
-  const resendVerification = async () => {
-    if (!auth.currentUser) throw new Error('Not signed in.');
-    await sendEmailVerification(auth.currentUser);
+  const markNotificationAsRead = async (notificationId: string): Promise<void> => {
+    await markNotificationRead(notificationId);
+    setNotifications((prev) =>
+      prev.map((n) => (n.notificationId === notificationId ? { ...n, read: true } : n))
+    );
   };
 
   const logout = async () => {
-    await signOut(auth);
-  };
-
-  const refreshProfile = async () => {
-    if (!auth.currentUser) return;
-    await auth.currentUser.reload();
-    await syncProfile(auth.currentUser);
+    try {
+      await apiFetch('/api/auth/logout', { method: 'POST' });
+    } catch {
+      // Ignore logout network error
+    }
+    clearSessionToken();
+    setProfile(null);
+    setNotifications([]);
   };
 
   return (
     <AuthContext.Provider
       value={{
-        firebaseUser,
+        user: profile,
         profile,
         notifications,
         limits,
         aiConfig,
         loading,
         authError,
-        signInWithGoogle,
         signInWithEmail,
         registerWithEmail,
-        resetPassword,
-        resendVerification,
+        setupInitialSuperAdmin,
+        changePassword,
+        markNotificationAsRead,
         logout,
         refreshProfile,
         reloadSettings,

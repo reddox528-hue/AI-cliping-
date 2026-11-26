@@ -10,8 +10,7 @@ import type {
   UserProfile,
   UserRole,
 } from '../../types/clipora';
-import { auth } from '../firebase/client';
-import { getAuthHeaders } from '../gemini/clientApi';
+import { apiFetch } from '../auth/sessionStore';
 
 export interface AdminSessionInfo {
   authorized: boolean;
@@ -43,49 +42,16 @@ export interface AdminDashboardPayload {
   };
 }
 
-async function adminFetch<T>(
-  path: string,
-  init?: RequestInit,
-  forceRefresh = false
-): Promise<T> {
-  const headers = await getAuthHeaders(forceRefresh);
-  let res = await fetch(`/api/admin${path}`, {
-    ...init,
-    headers: {
-      ...headers,
-      ...(init?.headers || {}),
-    },
-  });
+async function adminFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  return apiFetch<T>(`/api/admin${path}`, init);
+}
 
-  // If the cached token expired or custom claims/verification just updated, force-refresh once
-  if (res.status === 401 && !forceRefresh && auth.currentUser) {
-    await auth.currentUser.reload().catch(() => {});
-    const freshHeaders = await getAuthHeaders(true);
-    res = await fetch(`/api/admin${path}`, {
-      ...init,
-      headers: {
-        ...freshHeaders,
-        ...(init?.headers || {}),
-      },
-    });
-  }
-
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const err = new Error(
-      typeof data?.error === 'string' ? data.error : `Request rejected (HTTP ${res.status})`
-    ) as Error & { status?: number };
-    err.status = res.status;
-    throw err;
-  }
-  return data as T;
+export async function checkSuperAdminInitialized(): Promise<{ initialized: boolean }> {
+  return apiFetch<{ initialized: boolean }>('/api/auth/super-admin-status');
 }
 
 export async function verifyAdminSessionOnServer(): Promise<AdminSessionInfo> {
-  if (auth.currentUser) {
-    await auth.currentUser.reload().catch(() => {});
-  }
-  return adminFetch<AdminSessionInfo>('/session', undefined, true);
+  return adminFetch<AdminSessionInfo>('/session');
 }
 
 export async function recordAdminLoginEvent(): Promise<void> {
@@ -114,7 +80,11 @@ export async function reportFailedAdminLogin(email: string, reason: string): Pro
   try {
     await fetch('/api/security/failed-admin-login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'CliporaApp',
+      },
       body: JSON.stringify({ email, reason }),
     });
   } catch {
@@ -126,7 +96,11 @@ export async function reportAdminPasswordResetRequest(email: string): Promise<vo
   try {
     await fetch('/api/security/admin-password-reset', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      credentials: 'same-origin',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'CliporaApp',
+      },
       body: JSON.stringify({ email }),
     });
   } catch {
@@ -171,10 +145,15 @@ export async function provisionAdminApi(params: {
   });
 }
 
-export async function sendAdminPasswordResetApi(targetUid: string): Promise<void> {
-  await adminFetch(`/users/${encodeURIComponent(targetUid)}/password-reset`, {
-    method: 'POST',
-  });
+export async function sendAdminPasswordResetApi(
+  targetUid: string
+): Promise<{ ok: boolean; uid: string; temporaryPassword?: string }> {
+  return adminFetch<{ ok: boolean; uid: string; temporaryPassword?: string }>(
+    `/users/${encodeURIComponent(targetUid)}/password-reset`,
+    {
+      method: 'POST',
+    }
+  );
 }
 
 export async function updateUserRoleAndPermissionsApi(params: {

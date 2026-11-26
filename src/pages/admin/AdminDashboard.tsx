@@ -105,6 +105,7 @@ export function AdminDashboard({
   );
   const [provisioning, setProvisioning] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<UserProfile | null>(null);
+  const [issuedResetInfo, setIssuedResetInfo] = useState<{ email: string; tempPassword: string } | null>(null);
 
   const canPerm = useCallback(
     (perm: AdminPermission) => session.isSuperAdmin || session.permissions.includes(perm),
@@ -235,7 +236,7 @@ export function AdminDashboard({
         'success',
         res.createdNewAuthAccount ? 'New administrator created' : 'Administrator provisioned',
         res.createdNewAuthAccount
-          ? 'Firebase Auth account created, verification email dispatched, and ADMIN permissions saved.'
+          ? 'Administrator account created and ADMIN permissions saved.'
           : 'Role and permissions saved on server.'
       );
     } catch (err) {
@@ -247,8 +248,11 @@ export function AdminDashboard({
 
   const handleSendAdminPasswordReset = async (target: UserProfile) => {
     try {
-      await sendAdminPasswordResetApi(target.uid);
-      notify('success', 'Password reset email sent', `Dispatched reset link to ${target.email}.`);
+      const res = await sendAdminPasswordResetApi(target.uid);
+      if (res.temporaryPassword) {
+        setIssuedResetInfo({ email: target.email, tempPassword: res.temporaryPassword });
+      }
+      notify('success', 'Temporary password issued', `Updated credentials for ${target.email}.`);
     } catch (err) {
       notify('error', 'Password reset failed', err instanceof Error ? err.message : String(err));
     }
@@ -349,7 +353,7 @@ export function AdminDashboard({
             return (
               <div
                 key={s.label}
-                className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0E1424] p-4"
+                className="rounded-2xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926] p-4"
               >
                 <div className="flex items-center justify-between text-slate-400 mb-2">
                   <span className="text-xs text-slate-500 dark:text-slate-400">{s.label}</span>
@@ -369,7 +373,7 @@ export function AdminDashboard({
   if (activeRoute === 'admin-users' || activeRoute === 'admin-approvals' || activeRoute === 'admin-roles') {
     if (activeRoute === 'admin-roles' && !canPerm('CREATE_ADMINS')) {
       return (
-        <div className="rounded-2xl border border-red-200 dark:border-red-900 bg-white dark:bg-[#0E1424] p-8 text-center">
+        <div className="rounded-2xl border border-red-200 dark:border-red-900 bg-white dark:bg-[#161926] p-8 text-center">
           <Shield className="w-7 h-7 text-red-500 mx-auto mb-2" />
           <p className="text-sm font-semibold">Administrator creation permission required.</p>
         </div>
@@ -405,14 +409,14 @@ export function AdminDashboard({
         {activeRoute === 'admin-roles' && canPerm('CREATE_ADMINS') && (
           <form
             onSubmit={handleProvisionAdmin}
-            className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0E1424] p-6 space-y-4"
+            className="rounded-2xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926] p-6 space-y-4"
           >
             <div className="flex items-center gap-2 text-sm font-bold text-slate-900 dark:text-white">
               <UserPlus className="w-4 h-4 text-purple-600" />
               Create or Provision Administrator Account
             </div>
             <p className="text-xs text-slate-500 dark:text-slate-400">
-              Create a new Firebase Auth administrator account by providing a temporary password (min 10 chars), or leave password blank to promote an already-registered user.
+              Create a new administrator account by providing a temporary password (min 10 chars), or leave password blank to promote an already-registered user.
             </p>
             <div className="grid sm:grid-cols-3 gap-3">
               <input
@@ -420,7 +424,7 @@ export function AdminDashboard({
                 value={provisionDisplayName}
                 onChange={(e) => setProvisionDisplayName(e.target.value)}
                 placeholder="Display Name (optional)"
-                className="px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
+                className="px-3.5 py-2 rounded-xl border border-slate-300 dark:border-[#24283B] bg-white dark:bg-[#121521] text-sm"
               />
               <input
                 type="email"
@@ -428,7 +432,7 @@ export function AdminDashboard({
                 value={provisionEmail}
                 onChange={(e) => setProvisionEmail(e.target.value)}
                 placeholder="new-admin@domain.com"
-                className="px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
+                className="px-3.5 py-2 rounded-xl border border-slate-300 dark:border-[#24283B] bg-white dark:bg-[#121521] text-sm"
               />
               <input
                 type="password"
@@ -436,7 +440,7 @@ export function AdminDashboard({
                 value={provisionPassword}
                 onChange={(e) => setProvisionPassword(e.target.value)}
                 placeholder="Temporary password (for new user)"
-                className="px-3.5 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
+                className="px-3.5 py-2 rounded-xl border border-slate-300 dark:border-[#24283B] bg-white dark:bg-[#121521] text-sm"
               />
             </div>
             <div className="grid sm:grid-cols-3 gap-2 pt-1">
@@ -468,6 +472,26 @@ export function AdminDashboard({
           </form>
         )}
 
+        {issuedResetInfo && (
+          <div className="rounded-2xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/30 p-4 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div>
+              <p className="font-semibold text-amber-900 dark:text-amber-200">
+                Temporary password issued for {issuedResetInfo.email}
+              </p>
+              <p className="mt-1 font-mono select-all text-amber-800 dark:text-amber-300">
+                {issuedResetInfo.tempPassword}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIssuedResetInfo(null)}
+              className="px-3 py-1 rounded-lg border border-amber-400 dark:border-amber-700 font-semibold"
+            >
+              Dismiss
+            </button>
+          </div>
+        )}
+
         {activeRoute !== 'admin-approvals' && (
           <div className="flex flex-wrap gap-3">
             <div className="relative flex-1 min-w-[220px]">
@@ -477,13 +501,13 @@ export function AdminDashboard({
                 value={userSearch}
                 onChange={(e) => setUserSearch(e.target.value)}
                 placeholder="Search by name or email..."
-                className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#0E1424] text-sm"
+                className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-300 dark:border-[#24283B] bg-white dark:bg-[#161926] text-sm"
               />
             </div>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-              className="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-[#0E1424] text-sm"
+              className="px-3 py-2 rounded-xl border border-slate-300 dark:border-[#24283B] bg-white dark:bg-[#161926] text-sm"
             >
               <option value="ALL">All Statuses</option>
               <option value="PENDING">Pending</option>
@@ -494,9 +518,9 @@ export function AdminDashboard({
           </div>
         )}
 
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0E1424] overflow-x-auto">
+        <div className="rounded-2xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926] overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-200 dark:border-slate-800 text-xs text-slate-500">
+            <thead className="border-b border-slate-200 dark:border-[#24283B] text-xs text-slate-500">
               <tr>
                 <th className="py-3 px-4 font-semibold">User</th>
                 <th className="py-3 px-4 font-semibold">Role</th>
@@ -507,7 +531,7 @@ export function AdminDashboard({
                 <th className="py-3 px-4 font-semibold text-right">Actions</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            <tbody className="divide-y divide-slate-100 dark:divide-[#24283B]">
               {filteredUsers.length === 0 ? (
                 <tr>
                   <td colSpan={activeRoute === 'admin-roles' ? 5 : 4} className="py-10 text-center text-xs text-slate-500">
@@ -529,7 +553,7 @@ export function AdminDashboard({
                           <select
                             value={u.role}
                             onChange={(e) => handleRoleChange(u, e.target.value as UserRole)}
-                            className="px-2 py-1 rounded-lg border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-xs font-mono"
+                            className="px-2 py-1 rounded-lg border border-slate-300 dark:border-[#24283B] bg-white dark:bg-[#121521] text-xs font-mono"
                           >
                             <option value="CUSTOMER">CUSTOMER</option>
                             <option value="ADMIN">ADMIN</option>
@@ -640,9 +664,9 @@ export function AdminDashboard({
     return (
       <div className="space-y-6">
         <h1 className="font-display text-2xl font-bold">Projects &amp; Clips</h1>
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0E1424] overflow-x-auto">
+        <div className="rounded-2xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926] overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-200 dark:border-slate-800 text-xs text-slate-500">
+            <thead className="border-b border-slate-200 dark:border-[#24283B] text-xs text-slate-500">
               <tr>
                 <th className="py-3 px-4">Project</th>
                 <th className="py-3 px-4">Owner UID</th>
@@ -650,7 +674,7 @@ export function AdminDashboard({
                 <th className="py-3 px-4">Clips</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            <tbody className="divide-y divide-slate-100 dark:divide-[#24283B]">
               {projects.map((p) => (
                 <tr key={p.projectId}>
                   <td className="py-3 px-4 font-medium">{p.projectName}</td>
@@ -672,9 +696,9 @@ export function AdminDashboard({
     return (
       <div className="space-y-6">
         <h1 className="font-display text-2xl font-bold">Processing Jobs</h1>
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0E1424] overflow-x-auto">
+        <div className="rounded-2xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926] overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-200 dark:border-slate-800 text-xs text-slate-500">
+            <thead className="border-b border-slate-200 dark:border-[#24283B] text-xs text-slate-500">
               <tr>
                 <th className="py-3 px-4">Job ID</th>
                 <th className="py-3 px-4">Status</th>
@@ -683,7 +707,7 @@ export function AdminDashboard({
                 <th className="py-3 px-4 text-right">Action</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            <tbody className="divide-y divide-slate-100 dark:divide-[#24283B]">
               {jobs.map((j) => (
                 <tr key={j.jobId}>
                   <td className="py-3 px-4 font-mono text-xs">{j.jobId}</td>
@@ -716,7 +740,7 @@ export function AdminDashboard({
     return (
       <div className="space-y-6 max-w-3xl">
         <h1 className="font-display text-2xl font-bold">Storage &amp; Usage</h1>
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0E1424] p-6 space-y-4 text-sm">
+        <div className="rounded-2xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926] p-6 space-y-4 text-sm">
           <div className="flex items-center justify-between">
             <span>Cloudflare R2 Presigned Storage</span>
             <span className="font-mono font-semibold">
@@ -747,7 +771,7 @@ export function AdminDashboard({
         <h1 className="font-display text-2xl font-bold">System Limits</h1>
         <form
           onSubmit={handleSaveLimits}
-          className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0E1424] p-6 space-y-4"
+          className="rounded-2xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926] p-6 space-y-4"
         >
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
@@ -760,7 +784,7 @@ export function AdminDashboard({
                 onChange={(e) =>
                   setLimitsDraft({ ...limitsDraft, maxFileSizeMb: Number(e.target.value) })
                 }
-                className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm tabular-nums"
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-[#24283B] bg-white dark:bg-[#121521] text-sm tabular-nums"
               />
             </div>
             <div>
@@ -773,7 +797,7 @@ export function AdminDashboard({
                 onChange={(e) =>
                   setLimitsDraft({ ...limitsDraft, maxVideoDurationSec: Number(e.target.value) })
                 }
-                className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm tabular-nums"
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-[#24283B] bg-white dark:bg-[#121521] text-sm tabular-nums"
               />
             </div>
             <div>
@@ -786,7 +810,7 @@ export function AdminDashboard({
                 onChange={(e) =>
                   setLimitsDraft({ ...limitsDraft, maxProjectsPerUser: Number(e.target.value) })
                 }
-                className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm tabular-nums"
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-[#24283B] bg-white dark:bg-[#121521] text-sm tabular-nums"
               />
             </div>
             <div>
@@ -799,7 +823,7 @@ export function AdminDashboard({
                 onChange={(e) =>
                   setLimitsDraft({ ...limitsDraft, dailyAiRequestAllowance: Number(e.target.value) })
                 }
-                className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm tabular-nums"
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-[#24283B] bg-white dark:bg-[#121521] text-sm tabular-nums"
               />
             </div>
             <div>
@@ -812,7 +836,7 @@ export function AdminDashboard({
                 onChange={(e) =>
                   setLimitsDraft({ ...limitsDraft, storageAllowanceMb: Number(e.target.value) })
                 }
-                className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm tabular-nums"
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-[#24283B] bg-white dark:bg-[#121521] text-sm tabular-nums"
               />
             </div>
             <div className="flex items-center pt-5">
@@ -847,7 +871,7 @@ export function AdminDashboard({
         <h1 className="font-display text-2xl font-bold">AI Configuration</h1>
         <form
           onSubmit={handleSaveAiConfig}
-          className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0E1424] p-6 space-y-4"
+          className="rounded-2xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926] p-6 space-y-4"
         >
           <div className="flex items-center justify-between p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 text-xs">
             <span className="flex items-center gap-2 font-medium">
@@ -865,7 +889,7 @@ export function AdminDashboard({
                 onChange={(e) =>
                   setAiDraft({ ...aiDraft, modelId: e.target.value as AIConfig['modelId'] })
                 }
-                className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-mono"
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-[#24283B] bg-white dark:bg-[#121521] text-sm font-mono"
               >
                 <option value="gemini-4-hydrogen">gemini-4-hydrogen (Free Tier)</option>
                 <option value="gemini-3.1-flash-lite">gemini-3.1-flash-lite (Free Tier)</option>
@@ -879,7 +903,7 @@ export function AdminDashboard({
                 max={12}
                 value={aiDraft.maxClipsPerRun}
                 onChange={(e) => setAiDraft({ ...aiDraft, maxClipsPerRun: Number(e.target.value) })}
-                className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm tabular-nums"
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-[#24283B] bg-white dark:bg-[#121521] text-sm tabular-nums"
               />
             </div>
           </div>
@@ -890,7 +914,7 @@ export function AdminDashboard({
               rows={4}
               value={aiDraft.analysisInstructions}
               onChange={(e) => setAiDraft({ ...aiDraft, analysisInstructions: e.target.value })}
-              className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
+              className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-[#24283B] bg-white dark:bg-[#121521] text-sm"
             />
           </div>
 
@@ -910,7 +934,7 @@ export function AdminDashboard({
     return (
       <div className="space-y-6 max-w-3xl">
         <h1 className="font-display text-2xl font-bold">Platform Security Status</h1>
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0E1424] p-6 space-y-3 text-sm">
+        <div className="rounded-2xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926] p-6 space-y-3 text-sm">
           <div className="flex justify-between">
             <span>Public Registration Default</span>
             <span className="font-mono font-semibold">CUSTOMER + PENDING</span>
@@ -933,9 +957,9 @@ export function AdminDashboard({
   return (
     <div className="space-y-6">
       <h1 className="font-display text-2xl font-bold">Security &amp; Audit Logs</h1>
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0E1424] overflow-x-auto">
+      <div className="rounded-2xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926] overflow-x-auto">
         <table className="w-full text-left text-sm">
-          <thead className="border-b border-slate-200 dark:border-slate-800 text-xs text-slate-500">
+          <thead className="border-b border-slate-200 dark:border-[#24283B] text-xs text-slate-500">
             <tr>
               <th className="py-3 px-4">Timestamp</th>
               <th className="py-3 px-4">Actor</th>
@@ -943,7 +967,7 @@ export function AdminDashboard({
               <th className="py-3 px-4">Target</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+          <tbody className="divide-y divide-slate-100 dark:divide-[#24283B]">
             {auditLogs.length === 0 ? (
               <tr>
                 <td colSpan={4} className="py-10 text-center text-xs text-slate-500">

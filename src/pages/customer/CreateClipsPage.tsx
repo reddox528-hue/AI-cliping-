@@ -24,7 +24,7 @@ import {
   updateProcessingJob,
   updateProject,
   updateSourceVideo,
-} from '../../services/firebase/firestoreService';
+} from '../../services/data/workspaceService';
 import {
   analyzeVideoViaServer,
   probeRemoteVideoUrl,
@@ -536,7 +536,7 @@ export function CreateClipsPage({
       </div>
 
       {/* Step 1: Source Ingestion */}
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0E1424] p-6 space-y-5">
+      <div className="rounded-2xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926] p-6 space-y-5">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <h2 className="font-bold text-base text-slate-900 dark:text-white">
             01. Source Video
@@ -547,7 +547,7 @@ export function CreateClipsPage({
               onClick={() => setSourceMode('upload')}
               className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
                 sourceMode === 'upload'
-                  ? 'bg-white dark:bg-blue-600 text-slate-900 dark:text-white shadow-xs'
+                  ? 'bg-white dark:bg-purple-600 text-slate-900 dark:text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400'
               }`}
             >
@@ -558,7 +558,7 @@ export function CreateClipsPage({
               onClick={() => setSourceMode('url')}
               className={`px-3 py-1.5 rounded-md text-xs font-semibold transition-colors ${
                 sourceMode === 'url'
-                  ? 'bg-white dark:bg-blue-600 text-slate-900 dark:text-white shadow-xs'
+                  ? 'bg-white dark:bg-purple-600 text-slate-900 dark:text-white shadow-xs'
                   : 'text-slate-600 dark:text-slate-400'
               }`}
             >
@@ -576,7 +576,7 @@ export function CreateClipsPage({
             value={projectName}
             onChange={(e) => setProjectName(e.target.value)}
             placeholder="e.g., Episode 14 Product Launch Breakdown"
-            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
           />
         </div>
 
@@ -588,9 +588,9 @@ export function CreateClipsPage({
               const f = e.dataTransfer.files?.[0];
               if (f) void handleFileChosen(f);
             }}
-            className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-blue-500 dark:hover:border-blue-500 p-8 text-center cursor-pointer transition-colors bg-slate-50/50 dark:bg-slate-900/30"
+            className="flex flex-col items-center justify-center rounded-2xl border-2 border-dashed border-slate-300 dark:border-slate-700 hover:border-purple-500 dark:hover:border-purple-500 p-8 text-center cursor-pointer transition-colors bg-slate-50/50 dark:bg-slate-900/30"
           >
-            <Upload className="w-8 h-8 text-blue-600 dark:text-blue-400 mb-3" />
+            <Upload className="w-8 h-8 text-purple-600 dark:text-purple-400 mb-3" />
             <p className="text-sm font-semibold text-slate-900 dark:text-white">
               Drop a video file here or click to browse
             </p>
@@ -618,14 +618,14 @@ export function CreateClipsPage({
                   value={remoteUrl}
                   onChange={(e) => setRemoteUrl(e.target.value)}
                   placeholder="https://cdn.example.com/footage.mp4"
-                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
                 />
               </div>
               <button
                 type="button"
                 onClick={handleUrlImport}
                 disabled={probingUrl}
-                className="px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-blue-600 hover:bg-slate-800 dark:hover:bg-blue-700 text-white text-sm font-semibold transition-colors disabled:opacity-60 whitespace-nowrap"
+                className="px-4 py-2.5 rounded-xl bg-slate-900 dark:bg-purple-600 hover:bg-slate-800 dark:hover:bg-purple-700 text-white text-sm font-semibold transition-colors disabled:opacity-60 whitespace-nowrap"
               >
                 {probingUrl ? 'Validating...' : 'Validate & Import'}
               </button>
@@ -659,7 +659,7 @@ export function CreateClipsPage({
       </div>
 
       {/* Step 2: Transcript & Clip Settings */}
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0E1424] p-6 space-y-6">
+      <div className="rounded-2xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926] p-6 space-y-6">
         <h2 className="font-bold text-base text-slate-900 dark:text-white">
           02. Transcription &amp; Clip Parameters
         </h2>
@@ -670,8 +670,8 @@ export function CreateClipsPage({
             onClick={() => setTranscriptMode('auto-ai')}
             className={`p-4 rounded-xl border text-left transition-colors ${
               transcriptMode === 'auto-ai'
-                ? 'border-blue-600 bg-blue-500/5'
-                : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900/50'
+                ? 'border-purple-600 bg-purple-500/5'
+                : 'border-slate-200 dark:border-[#24283B] hover:bg-slate-50 dark:hover:bg-slate-900/50'
             }`}
           >
             <p className="text-sm font-semibold text-slate-900 dark:text-white">
@@ -685,8 +685,8 @@ export function CreateClipsPage({
           <label
             className={`p-4 rounded-xl border text-left cursor-pointer transition-colors ${
               transcriptMode === 'upload'
-                ? 'border-blue-600 bg-blue-500/5'
-                : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900/50'
+                ? 'border-purple-600 bg-purple-500/5'
+                : 'border-slate-200 dark:border-[#24283B] hover:bg-slate-50 dark:hover:bg-slate-900/50'
             }`}
           >
             <div className="flex items-center justify-between">
@@ -713,8 +713,8 @@ export function CreateClipsPage({
             onClick={() => setTranscriptMode('manual')}
             className={`p-4 rounded-xl border text-left transition-colors ${
               transcriptMode === 'manual'
-                ? 'border-blue-600 bg-blue-500/5'
-                : 'border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-900/50'
+                ? 'border-purple-600 bg-purple-500/5'
+                : 'border-slate-200 dark:border-[#24283B] hover:bg-slate-50 dark:hover:bg-slate-900/50'
             }`}
           >
             <p className="text-sm font-semibold text-slate-900 dark:text-white">
@@ -736,7 +736,7 @@ export function CreateClipsPage({
               value={manualTranscript}
               onChange={(e) => setManualTranscript(e.target.value)}
               placeholder="Paste spoken transcript or SRT content here..."
-              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500"
             />
           </div>
         )}
@@ -802,7 +802,7 @@ export function CreateClipsPage({
             type="checkbox"
             checked={burnCaptionsOnGenerate}
             onChange={(e) => setBurnCaptionsOnGenerate(e.target.checked)}
-            className="rounded border-slate-300 text-blue-600 focus:ring-blue-500"
+            className="rounded border-slate-300 text-purple-600 focus:ring-purple-500"
           />
           Burn default captions directly into initial generated clips (you can always customize &amp; re-export in the Video Editor)
         </label>
@@ -819,7 +819,7 @@ export function CreateClipsPage({
             type="button"
             disabled={!selectedFile || !metadata || jobRunning}
             onClick={handleStartPipeline}
-            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold transition-colors disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold transition-colors disabled:opacity-50"
           >
             {jobRunning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
             {jobRunning ? 'Processing Video...' : 'Analyze & Generate Clips'}
@@ -840,12 +840,12 @@ export function CreateClipsPage({
 
       {/* Live Pipeline Progress */}
       {jobStatus && (
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0E1424] p-6 space-y-3">
+        <div className="rounded-2xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926] p-6 space-y-3">
           <div className="flex items-center justify-between text-sm">
             <span className="font-semibold text-slate-900 dark:text-white">
               Status: {jobStatus}
             </span>
-            <span className="font-mono font-semibold tabular-nums text-blue-600 dark:text-blue-400">
+            <span className="font-mono font-semibold tabular-nums text-purple-600 dark:text-purple-400">
               {jobProgress}%
             </span>
           </div>
@@ -856,7 +856,7 @@ export function CreateClipsPage({
                   ? 'bg-red-600'
                   : jobStatus === 'COMPLETED'
                   ? 'bg-emerald-600'
-                  : 'bg-blue-600'
+                  : 'bg-purple-600'
               }`}
               style={{ width: `${jobProgress}%` }}
             />

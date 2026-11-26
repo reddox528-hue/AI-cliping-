@@ -10,7 +10,7 @@ import {
   makeId,
   saveBrandKit,
   updateOwnProfile,
-} from '../../services/firebase/firestoreService';
+} from '../../services/data/workspaceService';
 import { resolveMediaBlob } from '../../services/storage/localMediaStore';
 import { triggerBlobDownload } from '../../services/video/ffmpegEngine';
 import {
@@ -32,8 +32,8 @@ export function BrandKitPage({
   const { notify } = useToast();
 
   const [name, setName] = useState('');
-  const [primaryColor, setPrimaryColor] = useState('#2563EB');
-  const [secondaryColor, setSecondaryColor] = useState('#7C3AED');
+  const [primaryColor, setPrimaryColor] = useState('#7C3AED');
+  const [secondaryColor, setSecondaryColor] = useState('#A855F7');
   const [preset, setPreset] = useState<CaptionPresetId>('modern-bold');
   const [watermarkText, setWatermarkText] = useState('REDDOX Clipora AI');
   const [watermarkPos, setWatermarkPos] = useState<WatermarkConfig['position']>('bottom-right');
@@ -111,7 +111,7 @@ export function BrandKitPage({
 
       <form
         onSubmit={handleSave}
-        className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0E1424] p-6 space-y-4"
+        className="rounded-2xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926] p-6 space-y-4"
       >
         <h2 className="font-bold text-base text-slate-900 dark:text-white">New Brand Preset</h2>
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -183,14 +183,14 @@ export function BrandKitPage({
         </div>
 
         <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
-          <label className="text-xs font-semibold text-blue-600 dark:text-blue-400 cursor-pointer hover:underline">
+          <label className="text-xs font-semibold text-purple-600 dark:text-purple-400 cursor-pointer hover:underline">
             Optional: Upload Brand Logo (PNG/SVG under 300 KB)
             <input type="file" accept="image/*" onChange={handleLogoUpload} className="hidden" />
           </label>
           <button
             type="submit"
             disabled={saving}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold"
           >
             <PlusCircle className="w-4 h-4" />
             {saving ? 'Saving...' : 'Save Brand Kit'}
@@ -199,7 +199,7 @@ export function BrandKitPage({
       </form>
 
       {brandKits.length === 0 ? (
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0E1424] p-10 text-center">
+        <div className="rounded-2xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926] p-10 text-center">
           <Palette className="w-7 h-7 text-slate-400 mx-auto mb-2" />
           <p className="text-sm text-slate-500">No saved Brand Kits yet.</p>
         </div>
@@ -208,7 +208,7 @@ export function BrandKitPage({
           {brandKits.map((kit) => (
             <div
               key={kit.brandKitId}
-              className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0E1424] p-5 flex items-start justify-between gap-3"
+              className="rounded-2xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926] p-5 flex items-start justify-between gap-3"
             >
               <div>
                 <h3 className="font-bold text-sm text-slate-900 dark:text-white">{kit.name}</h3>
@@ -275,14 +275,14 @@ export function ExportHistoryPage({ exportsList }: { exportsList: ExportRecord[]
       </div>
 
       {exportsList.length === 0 ? (
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0E1424] p-12 text-center">
+        <div className="rounded-2xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926] p-12 text-center">
           <Download className="w-8 h-8 text-slate-400 mx-auto mb-3" />
           <p className="text-sm font-semibold">No exports completed yet</p>
         </div>
       ) : (
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0E1424] overflow-x-auto">
+        <div className="rounded-2xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926] overflow-x-auto">
           <table className="w-full text-left text-sm">
-            <thead className="border-b border-slate-200 dark:border-slate-800 text-xs text-slate-500">
+            <thead className="border-b border-slate-200 dark:border-[#24283B] text-xs text-slate-500">
               <tr>
                 <th className="py-3 px-4 font-semibold">Export ID</th>
                 <th className="py-3 px-4 font-semibold">Format</th>
@@ -309,7 +309,7 @@ export function ExportHistoryPage({ exportsList }: { exportsList: ExportRecord[]
                       <button
                         type="button"
                         onClick={() => handleDownload(exp)}
-                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-semibold"
+                        className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-purple-600 text-white text-xs font-semibold"
                       >
                         <Download className="w-3.5 h-3.5" />
                         Download
@@ -329,11 +329,14 @@ export function ExportHistoryPage({ exportsList }: { exportsList: ExportRecord[]
 }
 
 export function AccountSettingsPage() {
-  const { profile, limits, resetPassword, refreshProfile } = useAuth();
+  const { profile, limits, changePassword, refreshProfile } = useAuth();
   const { theme, setTheme } = useTheme();
   const { notify } = useToast();
   const [displayName, setDisplayName] = useState(profile?.displayName || '');
   const [saving, setSaving] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [changingPw, setChangingPw] = useState(false);
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -366,7 +369,7 @@ export function AccountSettingsPage() {
 
       <form
         onSubmit={handleSave}
-        className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0E1424] p-6 space-y-4"
+        className="rounded-2xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926] p-6 space-y-4"
       >
         <div>
           <label className="block text-xs font-semibold mb-1.5">Display Name</label>
@@ -384,7 +387,7 @@ export function AccountSettingsPage() {
             type="text"
             disabled
             value={profile?.email || ''}
-            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-100 dark:bg-slate-900/50 text-sm opacity-75"
+            className="w-full px-3.5 py-2.5 rounded-xl border border-slate-200 dark:border-[#24283B] bg-slate-100 dark:bg-slate-900/50 text-sm opacity-75"
           />
         </div>
         <div>
@@ -397,7 +400,7 @@ export function AccountSettingsPage() {
                 onClick={() => setTheme(t)}
                 className={`px-4 py-2 rounded-xl border text-xs font-semibold capitalize ${
                   theme === t
-                    ? 'border-blue-600 bg-blue-500/10 text-blue-600 dark:text-blue-400'
+                    ? 'border-purple-600 bg-purple-500/10 text-purple-600 dark:text-purple-400'
                     : 'border-slate-300 dark:border-slate-700'
                 }`}
               >
@@ -407,31 +410,67 @@ export function AccountSettingsPage() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-          <button
-            type="button"
-            onClick={async () => {
-              if (!profile?.email) return;
-              await resetPassword(profile.email);
-              notify('success', 'Password reset link sent');
-            }}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-600 dark:text-slate-300 hover:underline"
-          >
-            <KeyRound className="w-3.5 h-3.5" />
-            Send Password Reset Email
-          </button>
-
+        <div className="flex flex-wrap items-center justify-end gap-3 pt-2">
           <button
             type="submit"
             disabled={saving}
-            className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold"
+            className="px-4 py-2 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold"
           >
             {saving ? 'Saving...' : 'Save Settings'}
           </button>
         </div>
       </form>
 
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0E1424] p-6">
+      <form
+        onSubmit={async (e) => {
+          e.preventDefault();
+          setChangingPw(true);
+          try {
+            await changePassword(currentPassword, newPassword);
+            setCurrentPassword('');
+            setNewPassword('');
+            notify('success', 'Password updated');
+          } catch (err) {
+            notify('error', 'Password update failed', err instanceof Error ? err.message : String(err));
+          } finally {
+            setChangingPw(false);
+          }
+        }}
+        className="rounded-2xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926] p-6 space-y-4"
+      >
+        <div className="flex items-center gap-2 text-sm font-bold">
+          <KeyRound className="w-4 h-4 text-purple-600" />
+          Change Password
+        </div>
+        <div className="grid sm:grid-cols-2 gap-3">
+          <input
+            type="password"
+            required
+            value={currentPassword}
+            onChange={(e) => setCurrentPassword(e.target.value)}
+            placeholder="Current password"
+            className="px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
+          />
+          <input
+            type="password"
+            required
+            minLength={8}
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            placeholder="New password (min 8 chars)"
+            className="px-3.5 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={changingPw}
+          className="px-4 py-2 rounded-xl border border-slate-300 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-xs font-semibold"
+        >
+          {changingPw ? 'Updating...' : 'Update Password'}
+        </button>
+      </form>
+
+      <div className="rounded-2xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926] p-6">
         <h2 className="font-bold text-sm mb-3">Platform Allowances</h2>
         <div className="grid sm:grid-cols-2 gap-3 text-xs">
           <div className="p-3 rounded-xl bg-slate-50 dark:bg-slate-900/60 flex justify-between">
@@ -470,7 +509,7 @@ export function HelpSupportPage() {
         </p>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0E1424] p-6 space-y-4 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+      <div className="rounded-2xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926] p-6 space-y-4 text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
         <div>
           <h2 className="font-bold text-slate-900 dark:text-white">Browser FFmpeg Rendering</h2>
           <p className="mt-1 text-xs">

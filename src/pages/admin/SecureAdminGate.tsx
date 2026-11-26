@@ -1,9 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { AlertCircle, ArrowLeft, CheckCircle2, Lock, Mail, Shield } from 'lucide-react';
+import { AlertCircle, ArrowLeft, CheckCircle2, KeyRound, Lock, Mail, Shield, User as UserIcon } from 'lucide-react';
 import { ThemeToggle } from '../../components/common/ThemeToggle';
 import { useAuth } from '../../contexts/AuthContext';
 import { useToast } from '../../contexts/ToastContext';
 import {
+  checkSuperAdminInitialized,
   recordAdminLoginEvent,
   reportAdminPasswordResetRequest,
   reportFailedAdminLogin,
@@ -32,31 +33,43 @@ export default function SecureAdminGate({
 }: {
   onRedirectCustomerHome: () => void;
 }) {
-  const { firebaseUser, loading, signInWithEmail, signInWithGoogle, resetPassword } = useAuth();
+  const { user, loading, signInWithEmail, setupInitialSuperAdmin } = useAuth();
   const { notify } = useToast();
 
   const [session, setSession] = useState<AdminSessionInfo | null>(null);
   const [verifying, setVerifying] = useState(true);
+  const [superAdminInitialized, setSuperAdminInitialized] = useState<boolean | null>(null);
   const [activeRoute, setActiveRoute] = useState<AdminRoute>('admin-overview');
   const loggedLoginUidRef = useRef<string | null>(null);
 
+  const [displayName, setDisplayName] = useState('REDDOX Super Admin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [resetMode, setResetMode] = useState(false);
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [setupSecret, setSetupSecret] = useState('');
+  const [resetHelpOpen, setResetHelpOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [resetMessage, setResetMessage] = useState<string | null>(null);
+  const [infoMsg, setInfoMsg] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
     const verify = async () => {
       if (loading) return;
-      if (!firebaseUser) {
+
+      if (!user) {
         loggedLoginUidRef.current = null;
         if (!cancelled) {
           setSession(null);
-          setVerifying(false);
+        }
+        try {
+          const status = await checkSuperAdminInitialized();
+          if (!cancelled) setSuperAdminInitialized(status.initialized);
+        } catch {
+          if (!cancelled) setSuperAdminInitialized(true);
+        } finally {
+          if (!cancelled) setVerifying(false);
         }
         return;
       }
@@ -91,22 +104,24 @@ export default function SecureAdminGate({
     return () => {
       cancelled = true;
     };
-  }, [firebaseUser, loading, notify, onRedirectCustomerHome]);
+  }, [user, loading, notify, onRedirectCustomerHome]);
 
-  if (loading || (firebaseUser && verifying)) {
+  if (loading || verifying) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#070B14] text-slate-600 dark:text-slate-300 text-sm">
+      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#0D0F17] text-slate-600 dark:text-slate-300 text-sm">
         Verifying session authorization...
       </div>
     );
   }
 
-  // Unauthenticated visitor: render dedicated sign-in & password recovery screen (NO public registration)
-  if (!firebaseUser) {
+  // Unauthenticated visitor: show one-time Super Admin first-run setup OR dedicated Admin Sign In (no public customer signup)
+  if (!user) {
+    const isSetupMode = superAdminInitialized === false;
+
     const handleEmailLogin = async (e: React.FormEvent) => {
       e.preventDefault();
       setErrorMsg(null);
-      setResetMessage(null);
+      setInfoMsg(null);
       setSubmitting(true);
       try {
         await signInWithEmail(email, password);
@@ -119,25 +134,35 @@ export default function SecureAdminGate({
       }
     };
 
-    const handleGoogleLogin = async () => {
+    const handleInitialSetup = async (e: React.FormEvent) => {
+      e.preventDefault();
       setErrorMsg(null);
-      setResetMessage(null);
+      setInfoMsg(null);
+      if (password !== confirmPassword) {
+        setErrorMsg('Passwords do not match.');
+        return;
+      }
       setSubmitting(true);
       try {
-        await signInWithGoogle();
+        await setupInitialSuperAdmin({
+          displayName: displayName.trim() || 'REDDOX Super Admin',
+          email: email.trim(),
+          password,
+          setupSecret: setupSecret.trim() || undefined,
+        });
+        setSuperAdminInitialized(true);
+        notify('success', 'Super Admin initialized', 'You are now signed into the Control Panel.');
       } catch (err) {
-        const msg = err instanceof Error ? err.message : 'Google sign-in failed.';
-        await reportFailedAdminLogin('google_oauth', msg);
+        const msg = err instanceof Error ? err.message : 'Super Admin setup failed.';
         setErrorMsg(msg);
       } finally {
         setSubmitting(false);
       }
     };
 
-    const handlePasswordReset = async (e: React.FormEvent) => {
+    const handleRecoveryRequest = async (e: React.FormEvent) => {
       e.preventDefault();
       setErrorMsg(null);
-      setResetMessage(null);
       if (!email.trim()) {
         setErrorMsg('Enter your administrator email address.');
         return;
@@ -145,20 +170,17 @@ export default function SecureAdminGate({
       setSubmitting(true);
       try {
         await reportAdminPasswordResetRequest(email);
-        await resetPassword(email);
-      } catch {
-        // Deliberately swallow enumeration hints; keep response uniform
       } finally {
-        setResetMessage(
-          'If an authorized administrator account matches that email, a password reset link has been sent.'
+        setInfoMsg(
+          'Password reset request recorded. Contact your Super Admin inside Control Panel → Admin & Roles to issue a temporary password.'
         );
         setSubmitting(false);
       }
     };
 
     return (
-      <div className="min-h-screen bg-slate-50 dark:bg-[#070B14] text-slate-900 dark:text-slate-100 flex flex-col">
-        <header className="px-6 h-16 flex items-center justify-between border-b border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0B101D]">
+      <div className="min-h-screen bg-slate-50 dark:bg-[#0D0F17] text-slate-900 dark:text-slate-100 flex flex-col">
+        <header className="px-4 sm:px-6 h-16 flex items-center justify-between border-b border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#121521]">
           <div className="flex items-center gap-4">
             <button
               type="button"
@@ -174,16 +196,22 @@ export default function SecureAdminGate({
         </header>
 
         <main className="flex-1 flex items-center justify-center p-6">
-          <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0E1424] p-7 shadow-sm">
-            <div className="w-11 h-11 rounded-xl bg-purple-600/10 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-4">
+          <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926] p-7 shadow-sm">
+            <div className="w-11 h-11 rounded-xl bg-purple-600/12 border border-purple-500/20 text-purple-600 dark:text-purple-400 flex items-center justify-center mb-4">
               <Shield className="w-5 h-5" />
             </div>
             <h1 className="font-display text-2xl font-bold text-slate-950 dark:text-white">
-              {resetMode ? 'Recover Administrator Password' : 'Administrator Sign In'}
+              {isSetupMode
+                ? 'Initialize Super Admin'
+                : resetHelpOpen
+                ? 'Administrator Password Recovery'
+                : 'Administrator Sign In'}
             </h1>
             <p className="mt-1.5 text-xs text-slate-600 dark:text-slate-400">
-              {resetMode
-                ? 'Enter your administrator email address to receive a Firebase password reset link.'
+              {isSetupMode
+                ? 'One-time setup for the configured platform owner email. This form locks permanently after completion.'
+                : resetHelpOpen
+                ? 'Administrators receive temporary reset passwords directly from the Super Admin.'
                 : 'Authorized administrators only. Public registration is disabled on this route.'}
             </p>
 
@@ -194,15 +222,99 @@ export default function SecureAdminGate({
               </div>
             )}
 
-            {resetMessage && (
+            {infoMsg && (
               <div className="mt-4 rounded-xl border border-emerald-200 dark:border-emerald-900/60 bg-emerald-50 dark:bg-emerald-950/30 p-3 text-xs text-emerald-700 dark:text-emerald-300 flex items-start gap-2">
                 <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" />
-                <span>{resetMessage}</span>
+                <span>{infoMsg}</span>
               </div>
             )}
 
-            {resetMode ? (
-              <form onSubmit={handlePasswordReset} className="mt-5 space-y-4">
+            {isSetupMode ? (
+              <form onSubmit={handleInitialSetup} className="mt-5 space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold mb-1.5">Display Name</label>
+                  <div className="relative">
+                    <UserIcon className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      required
+                      value={displayName}
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 dark:border-[#24283B] bg-white dark:bg-[#121521] text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-500"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold mb-1.5">Owner Email Address</label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="owner@domain.com"
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 dark:border-[#24283B] bg-white dark:bg-[#121521] text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-500"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold mb-1.5">
+                    Password (min 12 chars, upper + lower + number)
+                  </label>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="password"
+                      required
+                      minLength={12}
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Strong Super Admin password"
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 dark:border-[#24283B] bg-white dark:bg-[#121521] text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-500"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold mb-1.5">Confirm Password</label>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="password"
+                      required
+                      minLength={12}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Repeat password"
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 dark:border-[#24283B] bg-white dark:bg-[#121521] text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-500"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-xs font-semibold mb-1.5">
+                    Bootstrap Secret (only if configured in server env)
+                  </label>
+                  <div className="relative">
+                    <KeyRound className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="password"
+                      value={setupSecret}
+                      onChange={(e) => setSetupSecret(e.target.value)}
+                      placeholder="Optional SUPER_ADMIN_BOOTSTRAP_SECRET"
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 dark:border-[#24283B] bg-white dark:bg-[#121521] text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-500"
+                    />
+                  </div>
+                </div>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-full py-2.5 px-4 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold transition-colors disabled:opacity-60"
+                >
+                  {submitting ? 'Establishing Super Admin...' : 'Complete Initial Super Admin Setup'}
+                </button>
+              </form>
+            ) : resetHelpOpen ? (
+              <form onSubmit={handleRecoveryRequest} className="mt-5 space-y-4">
                 <div>
                   <label className="block text-xs font-semibold mb-1.5">Administrator Email</label>
                   <div className="relative">
@@ -213,7 +325,7 @@ export default function SecureAdminGate({
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="admin@studio.com"
-                      className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 dark:border-[#24283B] bg-white dark:bg-[#121521] text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-500"
                     />
                   </div>
                 </div>
@@ -222,13 +334,14 @@ export default function SecureAdminGate({
                   disabled={submitting}
                   className="w-full py-2.5 px-4 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold transition-colors disabled:opacity-60"
                 >
-                  {submitting ? 'Sending Reset Link...' : 'Send Password Reset Email'}
+                  {submitting ? 'Logging Request...' : 'Notify Super Admin'}
                 </button>
                 <button
                   type="button"
                   onClick={() => {
-                    setResetMode(false);
+                    setResetHelpOpen(false);
                     setErrorMsg(null);
+                    setInfoMsg(null);
                   }}
                   className="w-full text-xs font-semibold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white"
                 >
@@ -236,74 +349,57 @@ export default function SecureAdminGate({
                 </button>
               </form>
             ) : (
-              <>
-                <button
-                  type="button"
-                  onClick={handleGoogleLogin}
-                  disabled={submitting}
-                  className="mt-5 w-full flex items-center justify-center gap-2.5 py-2.5 px-4 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 hover:bg-slate-50 dark:hover:bg-slate-800 text-sm font-semibold transition-colors disabled:opacity-60"
-                >
-                  Sign in with Google
-                </button>
-
-                <div className="my-5 flex items-center gap-3 text-xs text-slate-400">
-                  <div className="flex-1 h-px bg-slate-200 dark:bg-slate-800" />
-                  <span>or administrator email</span>
-                  <div className="flex-1 h-px bg-slate-200 dark:bg-slate-800" />
+              <form onSubmit={handleEmailLogin} className="mt-5 space-y-4">
+                <div>
+                  <label className="block text-xs font-semibold mb-1.5">Email Address</label>
+                  <div className="relative">
+                    <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="email"
+                      required
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="admin@studio.com"
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 dark:border-[#24283B] bg-white dark:bg-[#121521] text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-500"
+                    />
+                  </div>
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-semibold">Password</label>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setResetHelpOpen(true);
+                        setErrorMsg(null);
+                        setInfoMsg(null);
+                      }}
+                      className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:underline"
+                    >
+                      Forgot password?
+                    </button>
+                  </div>
+                  <div className="relative">
+                    <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="password"
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      placeholder="Password"
+                      className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 dark:border-[#24283B] bg-white dark:bg-[#121521] text-sm focus:outline-none focus:ring-2 focus:ring-purple-500/40 focus:border-purple-500"
+                    />
+                  </div>
                 </div>
 
-                <form onSubmit={handleEmailLogin} className="space-y-4">
-                  <div>
-                    <label className="block text-xs font-semibold mb-1.5">Email Address</label>
-                    <div className="relative">
-                      <Mail className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="email"
-                        required
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        placeholder="admin@studio.com"
-                        className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
-                      />
-                    </div>
-                  </div>
-                  <div>
-                    <div className="flex items-center justify-between mb-1.5">
-                      <label className="block text-xs font-semibold">Password</label>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setResetMode(true);
-                          setErrorMsg(null);
-                          setResetMessage(null);
-                        }}
-                        className="text-xs font-semibold text-purple-600 dark:text-purple-400 hover:underline"
-                      >
-                        Forgot password?
-                      </button>
-                    </div>
-                    <div className="relative">
-                      <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                      <input
-                        type="password"
-                        required
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder="Password"
-                        className="w-full pl-9 pr-3 py-2.5 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="w-full py-2.5 px-4 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold transition-colors disabled:opacity-60"
-                  >
-                    {submitting ? 'Verifying...' : 'Sign In to Control Panel'}
-                  </button>
-                </form>
-              </>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="w-full py-2.5 px-4 rounded-xl bg-purple-600 hover:bg-purple-700 text-white text-sm font-semibold transition-colors disabled:opacity-60"
+                >
+                  {submitting ? 'Verifying...' : 'Sign In to Control Panel'}
+                </button>
+              </form>
             )}
           </div>
         </main>

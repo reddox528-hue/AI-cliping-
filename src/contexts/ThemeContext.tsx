@@ -14,13 +14,15 @@ const STORAGE_KEY = 'clipora-theme';
 
 function getInitialTheme(): ResolvedTheme {
   if (typeof window === 'undefined') return 'dark';
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored === 'light' || stored === 'dark') {
-    return stored;
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored === 'light' || stored === 'dark') {
+      return stored;
+    }
+  } catch {
+    // Ignore storage read errors
   }
-  return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches
-    ? 'dark'
-    : 'light';
+  return 'dark';
 }
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {

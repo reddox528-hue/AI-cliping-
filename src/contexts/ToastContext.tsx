@@ -45,7 +45,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           <div
             key={t.id}
             role="status"
-            className="pointer-events-auto flex items-start gap-3 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-[#0E1424] px-4 py-3 shadow-lg text-slate-900 dark:text-slate-100"
+            className="pointer-events-auto flex items-start gap-3 rounded-xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926] px-4 py-3 shadow-lg text-slate-900 dark:text-slate-100"
           >
             {t.type === 'success' && (
               <CheckCircle2 className="w-5 h-5 text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5" />
@@ -58,7 +58,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                 className={`w-5 h-5 shrink-0 mt-0.5 ${
                   t.type === 'warning'
                     ? 'text-amber-600 dark:text-amber-400'
-                    : 'text-blue-600 dark:text-blue-400'
+                    : 'text-purple-600 dark:text-purple-400'
                 }`}
               />
             )}
