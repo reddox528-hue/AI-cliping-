@@ -100,7 +100,7 @@ export function AdminControlPanelLayout({
         <div className="h-16 px-5 border-b border-slate-200 dark:border-[#24283B] flex items-center justify-between">
           <div>
             <span className="font-display font-bold text-sm tracking-tight text-slate-950 dark:text-white block">
-              REDDOX Clipora AI
+              NEXORATECH Clipora AI
             </span>
             <span className="text-[11px] font-mono text-purple-600 dark:text-purple-400">
               Secure Control Panel

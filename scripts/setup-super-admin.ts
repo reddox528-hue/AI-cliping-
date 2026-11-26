@@ -55,13 +55,13 @@ function askHidden(prompt: string): Promise<string> {
 }
 
 async function main() {
-  console.log('\n=== REDDOX Clipora AI — Initial Super Admin Setup ===');
+  console.log('\n=== NEXORATECH Clipora AI — Initial Super Admin Setup ===');
   console.log(`Database Path:          ${env.dbPath}`);
   console.log(`Configured Owner Email: ${env.superAdminEmail}\n`);
 
   const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
   try {
-    const displayNameInput = await askQuestion(rl, 'Super Admin Display Name [REDDOX Super Admin]: ');
+    const displayNameInput = await askQuestion(rl, 'Super Admin Display Name [NEXORATECH Super Admin]: ');
     const emailInput = await askQuestion(rl, `Super Admin Email [${env.superAdminEmail}]: `);
     rl.close();
 
@@ -79,7 +79,7 @@ async function main() {
     }
 
     const email = (emailInput.trim() || env.superAdminEmail).toLowerCase();
-    const displayName = displayNameInput.trim() || 'REDDOX Super Admin';
+    const displayName = displayNameInput.trim() || 'NEXORATECH Super Admin';
 
     const result = await initializeSuperAdmin({
       email,

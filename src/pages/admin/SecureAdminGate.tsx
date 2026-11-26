@@ -42,7 +42,7 @@ export default function SecureAdminGate({
   const [activeRoute, setActiveRoute] = useState<AdminRoute>('admin-overview');
   const loggedLoginUidRef = useRef<string | null>(null);
 
-  const [displayName, setDisplayName] = useState('REDDOX Super Admin');
+  const [displayName, setDisplayName] = useState('NEXORATECH Super Admin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -145,7 +145,7 @@ export default function SecureAdminGate({
       setSubmitting(true);
       try {
         await setupInitialSuperAdmin({
-          displayName: displayName.trim() || 'REDDOX Super Admin',
+          displayName: displayName.trim() || 'NEXORATECH Super Admin',
           email: email.trim(),
           password,
           setupSecret: setupSecret.trim() || undefined,
@@ -190,7 +190,7 @@ export default function SecureAdminGate({
               <ArrowLeft className="w-3.5 h-3.5" />
               Back to Website
             </button>
-            <span className="font-display font-bold text-base">REDDOX Clipora AI</span>
+            <span className="font-display font-bold text-base">NEXORATECH Clipora AI</span>
           </div>
           <ThemeToggle />
         </header>

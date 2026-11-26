@@ -1,4 +1,4 @@
-# REDDOX Clipora AI — Security Specification & Dirty Dozen Payloads
+# NEXORATECH Clipora AI — Security Specification & Dirty Dozen Payloads
 
 ## Data Invariants
 1. **Default Deny**: All unmatched paths are denied (`allow read, write: if false;`).

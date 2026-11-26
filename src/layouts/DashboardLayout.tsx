@@ -84,9 +84,9 @@ export function DashboardLayout({
         <div className="h-16 px-5 border-b border-slate-200 dark:border-[#24283B] flex items-center justify-between">
           <span className="font-display font-bold text-base tracking-tight text-slate-950 dark:text-white whitespace-nowrap flex items-center gap-2">
             <span className="w-6 h-6 rounded-md bg-purple-600 text-white inline-flex items-center justify-center text-[11px] font-bold">
-              R
+              N
             </span>
-            <span>REDDOX Clipora AI</span>
+            <span>NEXORATECH Clipora AI</span>
           </span>
           <button
             type="button"

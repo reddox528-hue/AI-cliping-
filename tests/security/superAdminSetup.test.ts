@@ -41,7 +41,7 @@ describe('Initial Super Admin Setup Security (SQLite)', () => {
         {
           email: 'reddox528@gmail.com',
           password: 'StrongPassword#2026',
-          displayName: 'REDDOX Owner',
+          displayName: 'NEXORATECH Owner',
         },
         { expectedOwnerEmail: 'reddox528@gmail.com', bootstrapSecret: '', db }
       );

@@ -32,7 +32,7 @@ async function startServer() {
   }
 
   app.listen(env.port, '0.0.0.0', () => {
-    console.log(`REDDOX Clipora AI server running on http://0.0.0.0:${env.port}`);
+    console.log(`NEXORATECH Clipora AI server running on http://0.0.0.0:${env.port}`);
   });
 }
 

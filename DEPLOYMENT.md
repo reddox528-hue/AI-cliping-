@@ -1,6 +1,6 @@
-# REDDOX Clipora AI — Deployment & Configuration Guide
+# NEXORATECH Clipora AI — Deployment & Configuration Guide
 
-**REDDOX Clipora AI** runs on a self-contained full-stack architecture combining React + Tailwind CSS v4, a Node.js + Express backend proxy (`/api/*`) for Gemini AI calls and URL verification, built-in Node SQLite (`node:sqlite`) persistence with `scrypt` password hashing and HMAC-SHA256 signed session tokens, and browser-side FFmpeg.wasm video processing.
+**NEXORATECH Clipora AI** runs on a self-contained full-stack architecture combining React + Tailwind CSS v4, a Node.js + Express backend proxy (`/api/*`) for Gemini AI calls and URL verification, built-in Node SQLite (`node:sqlite`) persistence with `scrypt` password hashing and HMAC-SHA256 signed session tokens, and browser-side FFmpeg.wasm video processing.
 
 ---
 

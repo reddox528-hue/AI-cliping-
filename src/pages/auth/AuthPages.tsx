@@ -84,7 +84,7 @@ export function AuthPage({ initialMode, onBackHome }: AuthPagesProps) {
           className="inline-flex items-center gap-2 min-h-[40px] text-sm font-medium text-slate-600 dark:text-slate-300 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          REDDOX Clipora AI
+          NEXORATECH Clipora AI
         </button>
         <ThemeToggle />
       </header>
@@ -93,10 +93,10 @@ export function AuthPage({ initialMode, onBackHome }: AuthPagesProps) {
         <div className="w-full max-w-md rounded-2xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926] p-6 sm:p-8 shadow-sm">
           <div className="flex items-center gap-2.5 mb-5">
             <span className="w-7 h-7 rounded-lg bg-purple-600 text-white inline-flex items-center justify-center text-xs font-bold">
-              R
+              N
             </span>
             <span className="font-display font-bold text-sm text-slate-900 dark:text-white">
-              REDDOX Clipora AI
+              NEXORATECH Clipora AI
             </span>
           </div>
           <h1 className="font-display text-2xl font-bold text-slate-950 dark:text-white">
@@ -263,7 +263,7 @@ export function AccountStatusGate() {
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-[#0D0F17] text-slate-900 dark:text-slate-100 flex flex-col">
       <header className="px-6 h-16 flex items-center justify-between border-b border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#121521]">
-        <span className="font-display font-bold text-lg">REDDOX Clipora AI</span>
+        <span className="font-display font-bold text-lg">NEXORATECH Clipora AI</span>
         <div className="flex items-center gap-3">
           <ThemeToggle />
           <button

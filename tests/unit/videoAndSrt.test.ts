@@ -12,7 +12,7 @@ import type { TranscriptSegment } from '../../src/types/clipora.ts';
 
 describe('Video & Transcript Utilities', () => {
   const sampleSegments: TranscriptSegment[] = [
-    { id: 'seg_1', start: 0, end: 4.5, text: 'Welcome to REDDOX Clipora AI.' },
+    { id: 'seg_1', start: 0, end: 4.5, text: 'Welcome to NEXORATECH Clipora AI.' },
     { id: 'seg_2', start: 4.5, end: 11.25, text: 'Turn long videos into vertical clips.' },
   ];
 
@@ -24,7 +24,7 @@ describe('Video & Transcript Utilities', () => {
 
   it('exports valid SRT and WebVTT subtitles and round-trips via parser', () => {
     const srt = exportSegmentsToSRT(sampleSegments);
-    assert.match(srt, /1\n00:00:00,000 --> 00:00:04,500\nWelcome to REDDOX Clipora AI\./);
+    assert.match(srt, /1\n00:00:00,000 --> 00:00:04,500\nWelcome to NEXORATECH Clipora AI\./);
     assert.match(srt, /2\n00:00:04,500 --> 00:00:11,250\nTurn long videos into vertical clips\./);
 
     const parsedFromSrt = parseTranscriptFile(srt);

@@ -204,7 +204,7 @@ export function GeneratedClipsPage({
       }
 
       const zipBlob = await bundleClipsAsZip(zipItems);
-      triggerBlobDownload(zipBlob, `reddox_clipora_clips_${Date.now()}.zip`);
+      triggerBlobDownload(zipBlob, `nexoratech_clipora_clips_${Date.now()}.zip`);
       await onReload();
       notify('success', 'ZIP archive downloaded', `${zipItems.length} clips packaged with SRT subtitles.`);
     } catch (err) {

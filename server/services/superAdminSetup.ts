@@ -68,8 +68,8 @@ export async function initializeSuperAdmin(
 
   const normalizedEmail = String(input.email || '').trim().toLowerCase();
   const displayName =
-    String(input.displayName || 'REDDOX Super Admin').trim().slice(0, 120) ||
-    'REDDOX Super Admin';
+    String(input.displayName || 'NEXORATECH Super Admin').trim().slice(0, 120) ||
+    'NEXORATECH Super Admin';
 
   if (!normalizedEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
     throw new InvalidSetupInputError('Provide a valid Super Admin email address.');

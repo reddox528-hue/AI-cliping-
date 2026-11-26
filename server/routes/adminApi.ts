@@ -265,7 +265,7 @@ export function createAdminApiRouter(options?: {
         const statusTitles: Record<AccountStatus, { title: string; message: string }> = {
           APPROVED: {
             title: 'Account Approved',
-            message: 'Your REDDOX Clipora AI account has been approved by an administrator.',
+            message: 'Your NEXORATECH Clipora AI account has been approved by an administrator.',
           },
           REJECTED: {
             title: 'Account Application Declined',

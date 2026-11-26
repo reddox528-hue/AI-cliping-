@@ -35,7 +35,7 @@ export function BrandKitPage({
   const [primaryColor, setPrimaryColor] = useState('#7C3AED');
   const [secondaryColor, setSecondaryColor] = useState('#A855F7');
   const [preset, setPreset] = useState<CaptionPresetId>('modern-bold');
-  const [watermarkText, setWatermarkText] = useState('REDDOX Clipora AI');
+  const [watermarkText, setWatermarkText] = useState('NEXORATECH Clipora AI');
   const [watermarkPos, setWatermarkPos] = useState<WatermarkConfig['position']>('bottom-right');
   const [logoDataUrl, setLogoDataUrl] = useState('');
   const [saving, setSaving] = useState(false);

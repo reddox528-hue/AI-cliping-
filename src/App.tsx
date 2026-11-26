@@ -99,7 +99,7 @@ function CustomerWorkspaceApp({
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-[#0D0F17] text-slate-600 dark:text-slate-300 text-sm">
-        Initializing REDDOX Clipora AI...
+        Initializing NEXORATECH Clipora AI...
       </div>
     );
   }

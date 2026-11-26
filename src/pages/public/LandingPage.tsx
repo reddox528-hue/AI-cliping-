@@ -131,7 +131,7 @@ const SHOWCASE_WORKFLOWS: Array<{
 const FAQ_ITEMS = [
   {
     q: 'How does browser-based video rendering work?',
-    a: 'REDDOX Clipora AI runs FFmpeg.wasm directly inside your browser so your source footage is trimmed, reframed, and encoded locally without waiting on remote render queues.',
+    a: 'NEXORATECH Clipora AI runs FFmpeg.wasm directly inside your browser so your source footage is trimmed, reframed, and encoded locally without waiting on remote render queues.',
   },
   {
     q: 'Which video formats and URLs are supported?',
@@ -251,9 +251,9 @@ export function LandingPage({ onNavigateAuth, onNavigateAdminAccess }: LandingPa
             className="text-base sm:text-lg font-bold tracking-tight text-slate-950 dark:text-white whitespace-nowrap shrink-0 font-display flex items-center gap-2.5"
           >
             <span className="w-7 h-7 rounded-lg bg-purple-600 text-white inline-flex items-center justify-center text-xs font-bold shrink-0">
-              R
+              N
             </span>
-            <span>REDDOX Clipora AI</span>
+            <span>NEXORATECH Clipora AI</span>
           </a>
 
           <nav className="hidden lg:flex items-center gap-8 text-sm font-medium text-slate-600 dark:text-slate-300">
@@ -378,7 +378,7 @@ export function LandingPage({ onNavigateAuth, onNavigateAdminAccess }: LandingPa
               Turn long videos into focused clips that hold attention.
             </h1>
             <p className="mt-5 text-base sm:text-lg text-slate-600 dark:text-slate-300 leading-relaxed max-w-xl">
-              REDDOX Clipora AI combines Gemini moment detection, automatic speech captioning, and browser-based FFmpeg.wasm editing so your team can cut, reframe, and export ready-to-publish MP4s with full editorial control.
+              NEXORATECH Clipora AI combines Gemini moment detection, automatic speech captioning, and browser-based FFmpeg.wasm editing so your team can cut, reframe, and export ready-to-publish MP4s with full editorial control.
             </p>
 
             <div className="mt-8 flex flex-col sm:flex-row sm:flex-wrap items-stretch sm:items-center gap-3.5">
@@ -517,7 +517,7 @@ export function LandingPage({ onNavigateAuth, onNavigateAdminAccess }: LandingPa
           <div className="lg:col-span-6">
             <img
               src="/src/assets/images/hero_clipora_studio_1795653051239.jpg"
-              alt="REDDOX Clipora AI post-production suite"
+              alt="NEXORATECH Clipora AI post-production suite"
               loading="lazy"
               referrerPolicy="no-referrer"
               className="w-full aspect-video object-cover rounded-2xl border border-slate-200 dark:border-[#24283B]"
@@ -531,7 +531,7 @@ export function LandingPage({ onNavigateAuth, onNavigateAdminAccess }: LandingPa
               Built for creators who want full editorial control—not black-box guesswork.
             </h2>
             <p className="text-slate-600 dark:text-slate-300 leading-relaxed">
-              REDDOX Clipora AI pairs Gemini multimodal transcript and frame analysis with local FFmpeg.wasm video rendering right in your browser. Identify complete stories, customize typography and framing, and export verified MP4 clips without remote render queues.
+              NEXORATECH Clipora AI pairs Gemini multimodal transcript and frame analysis with local FFmpeg.wasm video rendering right in your browser. Identify complete stories, customize typography and framing, and export verified MP4 clips without remote render queues.
             </p>
             <div className="grid sm:grid-cols-2 gap-4 pt-2">
               <div className="p-4 rounded-xl border border-slate-200 dark:border-[#24283B] bg-white dark:bg-[#161926]">
@@ -667,7 +667,7 @@ export function LandingPage({ onNavigateAuth, onNavigateAdminAccess }: LandingPa
                 Built for real video formats across every channel.
               </h2>
               <p className="mt-3 text-slate-600 dark:text-slate-300 leading-relaxed">
-                Preview how REDDOX Clipora AI structures framing, captions, and exports for podcasts, stages, and founder walkthroughs.
+                Preview how NEXORATECH Clipora AI structures framing, captions, and exports for podcasts, stages, and founder walkthroughs.
               </p>
             </div>
             <button
@@ -744,7 +744,7 @@ export function LandingPage({ onNavigateAuth, onNavigateAdminAccess }: LandingPa
               Workflow Pipeline
             </p>
             <h2 className="font-display text-2xl sm:text-3xl font-bold tracking-tight text-slate-950 dark:text-white">
-              How REDDOX Clipora AI works
+              How NEXORATECH Clipora AI works
             </h2>
             <p className="mt-3 text-slate-600 dark:text-slate-300 leading-relaxed">
               From long-form upload to publish-ready vertical clips in four transparent stages.
@@ -903,7 +903,7 @@ export function LandingPage({ onNavigateAuth, onNavigateAdminAccess }: LandingPa
                     Studio Email
                   </p>
                   <a
-                    href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('REDDOX Clipora AI Inquiry')}`}
+                    href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('NEXORATECH Clipora AI Inquiry')}`}
                     className="mt-1 block text-sm font-semibold text-slate-950 dark:text-white hover:text-purple-600 dark:hover:text-purple-400 break-all"
                   >
                     {CONTACT_EMAIL}
@@ -913,7 +913,7 @@ export function LandingPage({ onNavigateAuth, onNavigateAdminAccess }: LandingPa
 
               <div className="pt-4 border-t border-slate-200 dark:border-[#24283B] flex flex-col sm:flex-row gap-3">
                 <a
-                  href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('REDDOX Clipora AI Inquiry')}`}
+                  href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent('NEXORATECH Clipora AI Inquiry')}`}
                   className="flex-1 inline-flex items-center justify-center gap-2 min-h-[44px] px-4 py-2.5 rounded-xl border border-slate-300 dark:border-[#2D324A] hover:bg-slate-100 dark:hover:bg-[#1E2233] text-xs font-semibold transition-colors"
                 >
                   <Mail className="w-4 h-4 text-purple-500" />
@@ -1072,10 +1072,10 @@ export function LandingPage({ onNavigateAuth, onNavigateAdminAccess }: LandingPa
           <div className="lg:col-span-5 space-y-3">
             <div className="flex items-center gap-2.5">
               <span className="w-7 h-7 rounded-lg bg-purple-600 text-white inline-flex items-center justify-center text-xs font-bold shrink-0">
-                R
+                N
               </span>
               <span className="font-display font-bold text-slate-950 dark:text-white text-base">
-                REDDOX Clipora AI
+                NEXORATECH Clipora AI
               </span>
             </div>
             <p className="text-xs leading-relaxed max-w-sm">
@@ -1186,7 +1186,7 @@ export function LandingPage({ onNavigateAuth, onNavigateAdminAccess }: LandingPa
 
         <div className="border-t border-slate-200 dark:border-[#24283B] py-5">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
-            <p>© {new Date().getFullYear()} REDDOX Clipora AI. All rights reserved.</p>
+            <p>© {new Date().getFullYear()} NEXORATECH Clipora AI. All rights reserved.</p>
             <div className="flex items-center gap-4">
               <span>Create Smarter. Clip Faster. Stand Out.</span>
               <a
