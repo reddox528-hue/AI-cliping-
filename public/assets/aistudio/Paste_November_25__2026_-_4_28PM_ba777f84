@@ -1,0 +1,1307 @@
+# MASTER BUILD PROMPT — REDDOX CLIPORA AI
+
+## PROJECT IDENTITY
+
+Build a complete, professional, production-structured AI video clipping and editing SaaS platform named **REDDOX Clipora AI**.
+
+The application must be a fully functional AI-powered video clipping platform that enables users to upload long-form videos or submit supported video URLs, automatically identify engaging moments, generate short-form clips, customize captions, edit the clips manually, and export finished videos.
+
+This must be a real working application, not a static UI prototype.
+
+The platform should deliver a premium experience comparable in quality and usability to professional products such as OpusClip, Vizard and VEED, while maintaining its own original identity, interface, architecture and features.
+
+The entire project must be developed using Google AI Studio Build Mode.
+
+---
+
+# 1. DEVELOPMENT REQUIREMENTS
+
+Use the following technology stack:
+
+### Frontend
+- React
+- TypeScript
+- Tailwind CSS
+- Modern component architecture
+- Lucide icons
+- Responsive layouts
+- Reusable UI components
+
+### Backend
+- Node.js server-side runtime
+- Secure API endpoints
+- Firebase Authentication
+- Cloud Firestore
+- Gemini API integration
+- Secure server-side secret management
+
+### Video processing
+- FFmpeg.wasm
+- Browser-based video rendering
+- HTML5 video playback
+- Canvas-based video preview and composition
+- Web Workers for computationally intensive tasks where supported
+- Web Audio API for audio analysis where appropriate
+
+### Storage
+- Cloudflare R2 for persistent media storage
+- Direct uploads using short-lived presigned URLs
+- Firebase Firestore for video metadata and project records
+
+### Hosting
+- Cloudflare Pages for the frontend where compatible with the selected deployment architecture.
+- Google AI Studio preview and supported free deployment options for development.
+- Do not introduce paid infrastructure dependencies.
+
+IMPORTANT: The project must remain compatible with free-tier infrastructure. Never silently enable a paid Google Cloud service, Firebase Blaze plan, paid API, paid video-rendering service or subscription-based external service.
+
+If a service requires billing, identify it clearly and provide a free alternative.
+
+Do not promise unlimited processing or unlimited storage.
+
+---
+
+# 2. BRAND IDENTITY AND DESIGN SYSTEM
+
+Platform name: REDDOX Clipora AI
+
+Create an original, premium visual identity.
+
+### Design direction
+- Professional SaaS appearance.
+- Modern creative workspace.
+- Premium video editing interface.
+- Clean typography.
+- Smooth transitions.
+- Consistent spacing.
+- Carefully designed cards and navigation.
+- Professional data tables.
+- Elegant modal windows.
+- Subtle shadows and borders.
+- Attractive video previews.
+
+### Brand colors
+Primary brand direction:
+- Deep navy.
+- Electric blue.
+- Purple accent.
+- White.
+- Neutral gray.
+
+### Theme system
+
+Implement a complete dark and light theme.
+
+Dark theme:
+- Deep charcoal and navy backgrounds.
+- Dark elevated cards.
+- Clear text hierarchy.
+- Subtle blue and purple accents.
+
+Light theme:
+- Clean white backgrounds.
+- Soft gray surfaces.
+- Dark readable typography.
+- Blue and purple accents.
+
+Requirements:
+- Theme switcher in the application header.
+- Persist user theme preference.
+- Respect system theme on first visit.
+- Ensure all pages support both themes.
+- Avoid inconsistent colors between modules.
+
+The application must be completely responsive on desktop, tablet and mobile.
+
+Prioritize desktop for the professional video editing workspace while providing functional mobile navigation.
+
+---
+
+# 3. PUBLIC WEBSITE
+
+Create a polished public-facing landing page.
+
+### Navigation
+- Logo.
+- Home.
+- Features.
+- How It Works.
+- About.
+- Sign In.
+- Get Started.
+
+### Hero section
+
+Main headline:
+
+"TURN LONG VIDEOS INTO CONTENT THAT GETS NOTICED."
+
+Supporting text:
+
+"Discover powerful moments, create engaging short videos and transform your content with AI-powered clipping and professional editing tools."
+
+Primary CTA:
+"Start Creating"
+
+Secondary CTA:
+"Explore Features"
+
+Include a visually impressive demonstration of the video clipping experience.
+
+### Landing page sections
+
+1. Hero section.
+2. Platform introduction.
+3. AI clipping features.
+4. Automatic caption generation.
+5. Smart video reframing.
+6. Manual video editing.
+7. Supported export formats.
+8. How the platform works.
+9. Benefits for content creators.
+10. Frequently asked questions.
+11. Final call to action.
+12. Professional footer.
+
+Do not use fabricated customer testimonials, fake statistics or false claims.
+
+---
+
+# 4. AUTHENTICATION AND ACCOUNT APPROVAL
+
+Use Firebase Authentication.
+
+Support:
+- Email and password registration.
+- Email and password login.
+- Google sign-in where properly configured.
+- Forgot password.
+- Password reset.
+- Email verification.
+- Secure logout.
+
+### Registration process
+
+Public registration must be enabled.
+
+However, registering must not automatically grant access to the main application.
+
+When someone registers:
+
+1. Create their Firebase Authentication account.
+2. Create their user profile in Firestore.
+3. Assign the default role CUSTOMER.
+4. Assign account status PENDING.
+5. Display an account awaiting approval page.
+6. Prevent access to protected customer functionality.
+7. Make the new registration visible to administrators.
+
+### Account statuses
+
+- PENDING
+- APPROVED
+- REJECTED
+- SUSPENDED
+
+Only APPROVED users can access the customer dashboard.
+
+Administrators must be able to approve, reject, suspend and reactivate accounts.
+
+Implement secure server-side authorization.
+
+Never rely exclusively on frontend route protection.
+
+Never allow users to assign themselves administrative roles.
+
+### Initial Super Admin setup
+
+Implement a secure one-time Super Admin provisioning mechanism.
+
+Use a trusted server-side process or Firebase Admin SDK with a controlled bootstrap secret.
+
+Never hardcode administrator credentials into source code.
+
+Never expose service account private keys or administrator privileges in browser code.
+
+---
+
+# 5. CUSTOMER DASHBOARD
+
+Create a professional customer dashboard.
+
+### Sidebar navigation
+
+- Overview
+- Create New Clips
+- My Projects
+- My Videos
+- Generated Clips
+- Video Editor
+- Brand Kit
+- Export History
+- Account Settings
+- Help and Support
+
+### Dashboard overview
+
+Display:
+- Total projects.
+- Videos uploaded.
+- Clips generated.
+- Completed exports.
+- Processing jobs.
+- Remaining processing allowance.
+- Recent projects.
+- Recent generated clips.
+- Quick action buttons.
+
+All statistics must be based on actual database records.
+
+Do not display fabricated usage statistics.
+
+---
+
+# 6. VIDEO UPLOAD AND IMPORT SYSTEM
+
+Build a complete video ingestion system.
+
+Users must be able to provide videos in two ways.
+
+### Method A: Upload videos
+
+Implement:
+- Drag-and-drop upload.
+- File browser upload.
+- Upload progress.
+- File validation.
+- Video metadata extraction.
+- File size validation.
+- Duration validation.
+- Upload cancellation.
+- Error handling.
+
+Support common video formats where browser decoding and FFmpeg.wasm permit:
+
+- MP4.
+- MOV.
+- WebM.
+- AVI where supported by the processing environment.
+- MKV where supported by the processing environment.
+
+Extract:
+- Video duration.
+- Resolution.
+- Width.
+- Height.
+- Frame rate.
+- File size.
+- Audio track availability.
+
+Do not pretend an unsupported codec can be processed.
+
+Display clear error messages when a file cannot be decoded.
+
+### Method B: Import from video URLs
+
+Provide a URL input field.
+
+Support:
+- Authorized direct video URLs.
+- Direct downloadable video resources.
+- Approved integrations with permitted access.
+
+Validate the URL before accepting it.
+
+Check CORS, content type, authorization and download accessibility.
+
+Do not build unauthorized YouTube, TikTok, Instagram or other platform scraping.
+
+If a platform does not permit direct downloading, explain that the user should upload their legally obtained video or use an authorized integration.
+
+### Storage
+
+Use Cloudflare R2 for persistent files when configured.
+
+Use temporary browser storage for local processing.
+
+Use short-lived presigned upload and download URLs.
+
+Never expose R2 secret keys in frontend code.
+
+Provide a graceful local-processing fallback if remote storage is not configured.
+
+---
+
+# 7. AI VIDEO CLIPPING ENGINE
+
+This is the central feature of the platform.
+
+Build a genuine AI-powered clipping workflow.
+
+The user should be able to select a video and request automatic clip generation.
+
+### Processing pipeline
+
+STEP 1: VIDEO ANALYSIS
+
+Extract:
+- Video metadata.
+- Audio information.
+- Representative video frames.
+- Speech content.
+- Scene changes where possible.
+
+STEP 2: TRANSCRIPTION
+
+Implement speech-to-text integration.
+
+Use an available free transcription option where possible.
+
+Support timestamped transcripts.
+
+If a transcription service is unavailable, provide an honest fallback, such as transcript upload or manual transcript entry.
+
+Do not generate fake transcripts.
+
+STEP 3: GEMINI AI ANALYSIS
+
+Integrate Gemini through secure server-side API calls.
+
+Use the model configured in the application settings and verify that it is available under the user's free API allowance.
+
+Ask Gemini to analyze the transcript and representative frames.
+
+Identify:
+- Interesting statements.
+- Strong opening hooks.
+- Educational moments.
+- Important explanations.
+- Funny moments.
+- Emotional moments.
+- Powerful reactions.
+- Complete stories.
+- Valuable discussions.
+
+STEP 4: CLIP SELECTION
+
+Generate candidate clips with:
+
+- Start timestamp.
+- End timestamp.
+- Duration.
+- Suggested title.
+- Short description.
+- Opening hook.
+- Main topic.
+- Engagement potential score.
+- Reason for selection.
+
+The AI must select complete, understandable moments.
+
+Avoid cutting sentences in half.
+
+Avoid clips that begin or end abruptly.
+
+Avoid unnecessary silence.
+
+Avoid generating several nearly identical clips.
+
+STEP 5: CLIP GENERATION
+
+Use FFmpeg.wasm to generate actual video clips.
+
+Support:
+- Start and end trimming.
+- Video resizing.
+- Video cropping.
+- Audio processing.
+- Subtitle rendering.
+- Export encoding.
+
+Every generated clip must correspond to its actual source timestamps.
+
+Do not create fake downloadable clip records.
+
+### Clip duration
+
+Allow users to choose their own duration.
+
+Provide editable minimum and maximum duration settings.
+
+Do not impose an artificial fixed duration.
+
+Validate that the selected duration does not exceed the original video's length.
+
+---
+
+# 8. AI CLIP SCORING
+
+Develop an AI-assisted ranking system.
+
+Evaluate candidate clips based on:
+
+- Hook strength.
+- Clarity.
+- Story completeness.
+- Educational value.
+- Emotional impact.
+- Interesting content.
+- Topic relevance.
+- Beginning and ending quality.
+
+Provide a score from 0 to 100.
+
+Label this as an estimated engagement or clip quality score.
+
+Never guarantee that a clip will go viral.
+
+Allow users to sort generated clips by:
+- Highest score.
+- Shortest duration.
+- Longest duration.
+- Newest.
+- Oldest.
+
+---
+
+# 9. AUTOMATIC CAPTION GENERATION
+
+Build a professional subtitle engine.
+
+Features:
+- Speech transcription.
+- Timestamp synchronization.
+- Automatic subtitle generation.
+- Manual subtitle editing.
+- Word-level highlighting where timestamps are available.
+- Subtitle positioning.
+- Font customization.
+- Font size adjustment.
+- Text color.
+- Highlight color.
+- Background customization.
+- Caption animation presets.
+- Subtitle export.
+
+Include several caption presets:
+
+1. Modern Bold.
+2. Creator Style.
+3. Minimal Clean.
+4. Karaoke Highlight.
+5. Professional Subtitle.
+6. High Contrast.
+
+Allow users to customize captions before rendering.
+
+Do not claim word-level synchronization if only sentence-level timestamps are available.
+
+---
+
+# 10. SMART VIDEO REFRAMING
+
+Create an aspect-ratio conversion system.
+
+Support:
+
+- 9:16 portrait.
+- 16:9 landscape.
+- 1:1 square.
+
+Implement:
+- Center crop.
+- Custom crop.
+- Manual positioning.
+- Zoom adjustment.
+- Background blur.
+- Fit-to-frame.
+- Fill-to-frame.
+
+Add face tracking as an optional advanced feature.
+
+If no suitable face-detection model is available locally, provide manual subject positioning rather than pretending automatic tracking is working.
+
+Ensure important content is not unnecessarily cropped.
+
+---
+
+# 11. PROFESSIONAL VIDEO EDITOR
+
+Create a professional editing workspace.
+
+The editor must include:
+
+### Video preview
+- Play.
+- Pause.
+- Seek.
+- Volume.
+- Fullscreen.
+- Current playback time.
+- Total duration.
+
+### Timeline
+- Video track.
+- Audio track where supported.
+- Caption track.
+- Draggable trim boundaries.
+- Clip splitting.
+- Clip deletion.
+- Timeline zoom.
+- Playback cursor.
+
+### Editing controls
+- Trim.
+- Split.
+- Crop.
+- Resize.
+- Adjust volume.
+- Add captions.
+- Change text styles.
+- Change aspect ratio.
+- Adjust video positioning.
+- Apply background blur.
+- Add a custom watermark.
+
+### Undo and redo
+
+Implement a reliable editing history system.
+
+### Save functionality
+
+Users must be able to:
+- Save changes.
+- Reopen projects.
+- Restore previous edits where supported.
+- Duplicate projects.
+- Delete projects.
+
+The editor must perform actual editing operations, not merely change the appearance of controls.
+
+---
+
+# 12. BRAND KIT
+
+Allow users to create and save branding presets.
+
+Features:
+- Upload logo.
+- Brand colors.
+- Caption fonts.
+- Default caption style.
+- Watermark positioning.
+- Intro and outro preferences.
+
+Allow users to apply their brand kit to multiple clips.
+
+---
+
+# 13. EXPORT AND DOWNLOAD SYSTEM
+
+Implement actual video rendering and export.
+
+Support:
+
+- MP4.
+- 720p.
+- 1080p where supported by the source and device.
+- 9:16.
+- 16:9.
+- 1:1.
+
+Export options:
+- Individual clips.
+- Multiple selected clips.
+- Download all generated clips.
+- ZIP download when browser capabilities allow.
+- Captioned export.
+- Original audio.
+- Muted export.
+
+Display:
+- Export progress.
+- Export status.
+- File size.
+- Resolution.
+- Download option.
+
+Validate rendering before marking an export completed.
+
+If rendering fails, show the actual error and allow retry.
+
+---
+
+# 14. ADMINISTRATOR DASHBOARD
+
+Build a separate, protected administrator experience.
+
+### Sidebar
+
+- Overview.
+- User Management.
+- Pending Approvals.
+- Roles and Permissions.
+- Projects.
+- Generated Clips.
+- Processing Jobs.
+- Usage Management.
+- Storage Management.
+- AI Configuration.
+- Platform Settings.
+- Audit Logs.
+
+### Admin overview
+
+Display real database information:
+
+- Total registered users.
+- Approved accounts.
+- Pending accounts.
+- Suspended accounts.
+- Total projects.
+- Total videos.
+- Generated clips.
+- Completed exports.
+- Failed processing jobs.
+- Storage consumption.
+
+### User management
+
+Administrators must be able to:
+
+- View users.
+- Search users.
+- Filter by status.
+- Approve accounts.
+- Reject accounts.
+- Suspend accounts.
+- Reactivate accounts.
+- Change permitted roles.
+- View user activity.
+- View project information.
+
+### Roles
+
+SUPER_ADMIN:
+- Full platform control.
+
+ADMIN:
+- User management and assigned administrative permissions.
+
+CUSTOMER:
+- Access to personal projects and editing functionality only.
+
+Protect sensitive actions with server-side permission checks.
+
+### Usage management
+
+Provide controls for:
+
+- Maximum video file size.
+- Maximum video duration.
+- Maximum number of projects.
+- Maximum concurrent browser processing jobs.
+- AI request allowance.
+- Storage allowance.
+- Export restrictions.
+
+Administrators must be able to change these limits.
+
+Enforce the limits on the backend.
+
+### AI configuration
+
+Allow authorized administrators to configure:
+
+- Gemini model identifier.
+- AI request limits.
+- Clip scoring preferences.
+- Analysis instructions.
+- Default processing settings.
+
+Never expose API keys in the browser or display their secret values.
+
+---
+
+# 15. DATABASE STRUCTURE
+
+Use Cloud Firestore.
+
+Create a clean, scalable data model.
+
+Collections:
+
+### users
+- uid
+- displayName
+- email
+- photoURL
+- role
+- accountStatus
+- createdAt
+- approvedAt
+- approvedBy
+- lastLoginAt
+- themePreference
+
+### projects
+- projectId
+- ownerId
+- projectName
+- sourceVideoId
+- status
+- createdAt
+- updatedAt
+
+### sourceVideos
+- videoId
+- ownerId
+- projectId
+- fileName
+- storagePath
+- duration
+- width
+- height
+- frameRate
+- fileSize
+- mimeType
+- processingStatus
+
+### processingJobs
+- jobId
+- ownerId
+- projectId
+- sourceVideoId
+- status
+- progress
+- currentStage
+- errorMessage
+- createdAt
+- completedAt
+
+### clips
+- clipId
+- ownerId
+- projectId
+- sourceVideoId
+- startTime
+- endTime
+- duration
+- title
+- description
+- score
+- clipStoragePath
+- aspectRatio
+- status
+
+### transcripts
+- transcriptId
+- ownerId
+- projectId
+- sourceVideoId
+- language
+- transcriptText
+- timestampedSegments
+
+### exports
+- exportId
+- ownerId
+- clipId
+- format
+- resolution
+- storagePath
+- fileSize
+- status
+- createdAt
+
+### brandKits
+- brandKitId
+- ownerId
+- name
+- logoPath
+- primaryColor
+- secondaryColor
+- captionSettings
+- watermarkSettings
+
+### usageRecords
+- recordId
+- ownerId
+- operation
+- resourceType
+- resourceAmount
+- createdAt
+
+### systemSettings
+- settingId
+- settingValue
+- updatedAt
+- updatedBy
+
+### auditLogs
+- logId
+- actorId
+- action
+- targetId
+- timestamp
+- metadata
+
+### invitations
+
+Use this collection only if invitation functionality is enabled in addition to public registration.
+
+Implement proper Firestore indexes for common queries.
+
+Do not store large video binaries inside Firestore.
+
+Use Firestore for metadata and object storage for actual media.
+
+---
+
+# 16. SECURITY REQUIREMENTS
+
+Security is mandatory.
+
+Implement:
+
+- Firebase Authentication.
+- Verified authentication tokens.
+- Server-side authorization.
+- Firestore security rules.
+- Ownership verification.
+- Role-based access control.
+- Protected administrative routes.
+- Server-side secret management.
+- Input validation.
+- File validation.
+- Rate limiting.
+- Secure upload URLs.
+- Secure download URLs.
+- Audit logging.
+- CSRF protection where applicable.
+- XSS protection.
+- Safe error handling.
+
+Customers must never access another customer's videos, projects, clips, exports or private records.
+
+Customers must never access administrator functionality.
+
+Do not trust user-provided owner IDs.
+
+Derive the authenticated user's identity from verified credentials.
+
+Never expose:
+- Gemini API keys.
+- Firebase service account private keys.
+- Cloudflare R2 secret keys.
+- Administrator bootstrap secrets.
+
+Do not use permissive Firestore rules in production.
+
+---
+
+# 17. FREE-INFRASTRUCTURE REQUIREMENTS
+
+This is a strict requirement.
+
+The project must be designed for free-tier operation.
+
+Use:
+
+- Firebase Spark.
+- Free Gemini API quota.
+- Free Cloudflare Pages allowance.
+- Cloudflare R2 free allowance.
+- Browser-based FFmpeg.wasm processing.
+- Open-source libraries.
+
+Do not require:
+
+- Firebase Blaze.
+- Paid Cloud Run workers.
+- Paid transcription APIs.
+- Paid video editing APIs.
+- Paid AI services.
+- Paid external databases.
+
+If a feature cannot operate within the free infrastructure, mark it as unavailable or provide a functional local alternative.
+
+### Browser processing strategy
+
+Process videos inside the customer's browser wherever practical.
+
+Do not upload the original video to a remote server merely to trim it locally.
+
+Use browser memory responsibly.
+
+Display warnings for large videos.
+
+Allow processing cancellation.
+
+Clean up temporary files and object URLs.
+
+Provide meaningful error handling for unsupported devices.
+
+### Storage strategy
+
+Use temporary local processing when remote storage is unavailable.
+
+When Cloudflare R2 is configured, use secure direct uploads.
+
+Enforce storage quotas.
+
+Do not claim unlimited storage.
+
+### AI strategy
+
+Use the Gemini free allowance where available.
+
+Track AI requests.
+
+Implement request throttling.
+
+Do not make unnecessary AI requests.
+
+Provide manual fallback options when free quota limits are reached.
+
+---
+
+# 18. PROCESSING JOB MANAGEMENT
+
+Every processing operation must have a reliable state.
+
+Supported states:
+
+- QUEUED
+- VALIDATING
+- TRANSCRIBING
+- ANALYZING
+- SELECTING_CLIPS
+- RENDERING
+- QUALITY_CHECK
+- COMPLETED
+- FAILED
+- CANCELLED
+
+Display meaningful progress to the user.
+
+Do not fabricate progress percentages.
+
+Update progress from actual processing events.
+
+Implement:
+- Retry.
+- Cancellation.
+- Error reporting.
+- Cleanup.
+- Recovery after page reload where supported.
+
+Because the initial architecture uses browser-based rendering, clearly distinguish a locally running job from a remotely stored project.
+
+Do not imply that processing continues after the user closes their browser if it does not.
+
+---
+
+# 19. NOTIFICATIONS
+
+Implement in-app notifications for:
+
+- Account registration received.
+- Account approved.
+- Account rejected.
+- Account suspended.
+- Video uploaded.
+- AI analysis completed.
+- Clips generated.
+- Export completed.
+- Processing failed.
+
+Use email notifications only when a compatible free email delivery method is actually configured.
+
+Do not display successful email delivery when no email provider is connected.
+
+---
+
+# 20. USER EXPERIENCE REQUIREMENTS
+
+The entire application must have:
+
+- Loading states.
+- Empty states.
+- Error states.
+- Success notifications.
+- Confirmation dialogs.
+- Search.
+- Filters.
+- Pagination where appropriate.
+- Responsive navigation.
+- Accessible controls.
+- Helpful tooltips.
+- Clear progress indicators.
+
+Every visible button must have a real action.
+
+Every form must validate input.
+
+Every dashboard statistic must have a real data source.
+
+Do not create nonfunctional placeholder controls and present them as finished features.
+
+If a feature is not implemented, clearly identify it as coming soon.
+
+---
+
+# 21. PROJECT STRUCTURE
+
+Organize the application into reusable modules.
+
+Suggested structure:
+
+src/
+  components/
+    common/
+    dashboard/
+    video/
+    editor/
+    captions/
+    admin/
+    forms/
+  pages/
+    public/
+    auth/
+    customer/
+    admin/
+  layouts/
+  hooks/
+  services/
+    firebase/
+    gemini/
+    storage/
+    video/
+    transcription/
+  utils/
+  types/
+  contexts/
+  styles/
+
+server/
+  routes/
+  middleware/
+  services/
+  firebase/
+  security/
+  validation/
+  config/
+
+workers/
+  video/
+  transcription/
+
+public/
+  assets/
+
+tests/
+  unit/
+  integration/
+  security/
+
+Adapt the structure to the actual Google AI Studio generated application architecture without breaking its build system.
+
+Keep sensitive backend operations out of client-side files.
+
+---
+
+# 22. TESTING AND QUALITY ASSURANCE
+
+Before declaring the application complete, perform:
+
+### Frontend testing
+- Navigation testing.
+- Responsive testing.
+- Theme switching.
+- Form validation.
+- Dashboard rendering.
+- Video preview testing.
+
+### Authentication testing
+- Registration.
+- Login.
+- Logout.
+- Password reset.
+- Pending account access.
+- Approved account access.
+- Suspended account access.
+
+### Security testing
+- Customer accessing another user's project.
+- Customer attempting administrator access.
+- Unauthorized API requests.
+- Invalid authentication tokens.
+- Unauthorized file downloads.
+- Role escalation attempts.
+
+### Video processing testing
+- Valid MP4 upload.
+- Invalid file upload.
+- Video metadata extraction.
+- AI analysis.
+- Clip timestamp validation.
+- Video trimming.
+- Caption synchronization.
+- Aspect ratio conversion.
+- Export verification.
+- Cancellation and failure recovery.
+
+### Backend testing
+- Firestore operations.
+- Security rules.
+- API validation.
+- Storage permissions.
+- Usage limits.
+- Error handling.
+
+Run:
+- TypeScript checks.
+- Production build.
+- Available unit tests.
+- Integration tests.
+- Security rule tests.
+
+Resolve all critical errors before declaring the application ready.
+
+---
+
+# 23. IMPLEMENTATION INSTRUCTIONS
+
+Build the platform as a cohesive application.
+
+Do not generate only a landing page.
+
+Do not stop after building the customer dashboard.
+
+Do not substitute mock data for real database records.
+
+Do not create fake AI functionality.
+
+Do not create buttons that do nothing.
+
+Do not claim a video has been processed when no actual video file has been generated.
+
+Use realistic empty states during initial development.
+
+Use clean and maintainable code.
+
+Implement proper loading, error and success handling.
+
+### Recommended development sequence
+
+PHASE 1:
+- Project initialization.
+- Design system.
+- Public website.
+- Authentication.
+- Registration approval.
+- Customer and administrator roles.
+
+PHASE 2:
+- Customer dashboard.
+- Administrator dashboard.
+- Firestore data model.
+- Security rules.
+- User management.
+
+PHASE 3:
+- Video upload.
+- Video URL import.
+- Metadata extraction.
+- Gemini integration.
+- Transcript processing.
+
+PHASE 4:
+- AI moment detection.
+- Clip selection.
+- Clip ranking.
+- FFmpeg.wasm integration.
+- Actual video generation.
+
+PHASE 5:
+- Video editor.
+- Caption customization.
+- Smart reframing.
+- Timeline controls.
+- Undo and redo.
+
+PHASE 6:
+- Export system.
+- Cloudflare R2 integration.
+- Project history.
+- Notifications.
+
+PHASE 7:
+- Testing.
+- Security verification.
+- Performance optimization.
+- Deployment preparation.
+
+At each phase, maintain a working application and avoid breaking previously completed features.
+
+If Google AI Studio cannot implement everything reliably in one generation, continue through the phases using the existing project codebase. Do not recreate the application from scratch between phases.
+
+---
+
+# 24. FINAL DELIVERY REQUIREMENTS
+
+The finished REDDOX Clipora AI application must include:
+
+1. Professional public landing page.
+2. Functional registration and authentication.
+3. Admin approval system.
+4. Secure role-based access.
+5. Customer dashboard.
+6. Administrator dashboard.
+7. Video upload.
+8. Supported URL import.
+9. Video analysis.
+10. AI-powered clip selection.
+11. Automatic video cutting.
+12. Caption generation and customization.
+13. Smart video reframing.
+14. Professional editing workspace.
+15. Actual video export.
+16. Cloud storage integration.
+17. Usage monitoring.
+18. Project history.
+19. Dark and light themes.
+20. Responsive layouts.
+21. Security rules.
+22. Error handling.
+23. Automated tests.
+24. Deployment documentation.
+
+### FINAL INSTRUCTION
+
+Start by inspecting the available Google AI Studio environment and selecting a compatible architecture.
+
+Then initialize REDDOX Clipora AI.
+
+Prioritize functional implementation, secure architecture, premium design and free-tier compatibility.
+
+Build a real video clipping product that users can actually use to transform long videos into short-form content.
+
+The most important features are:
+
+- AI-powered moment detection.
+- Accurate clip generation.
+- Actual video rendering.
+- Caption customization.
+- Manual editing.
+- Secure user access.
+- Administrator control.
+
+Do not sacrifice functionality for visual appearance.
+
+The final result must feel like a polished, professional commercial SaaS product with its own distinctive identity.
+
+**PROJECT NAME: REDDOX CLIPORA AI**
+
+**TAGLINE: CREATE SMARTER. CLIP FASTER. STAND OUT.**

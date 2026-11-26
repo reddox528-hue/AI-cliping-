@@ -1,0 +1,676 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Default-Deny Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // ---------------------------------------------------------
+    // Global Hardened Primitives
+    // ---------------------------------------------------------
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isOwner(ownerId) {
+      return isSignedIn() && request.auth.uid == ownerId;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isBootstrapOwner() {
+      return isEmailVerified() &&
+        ('email' in request.auth.token) &&
+        request.auth.token.email is string &&
+        request.auth.token.email.lower() == 'reddox528@gmail.com';
+    }
+
+    function callerUserPath() {
+      return /databases/$(database)/documents/users/$(request.auth.uid);
+    }
+
+    function callerExists() {
+      return isSignedIn() && exists(callerUserPath());
+    }
+
+    function callerData() {
+      return get(callerUserPath()).data;
+    }
+
+    function isApprovedUser() {
+      return isBootstrapOwner() || (
+        callerExists() &&
+        callerData().accountStatus == 'APPROVED'
+      );
+    }
+
+    function isAdmin() {
+      return isBootstrapOwner() || (
+        callerExists() &&
+        callerData().accountStatus == 'APPROVED' &&
+        (callerData().role == 'ADMIN' || callerData().role == 'SUPER_ADMIN')
+      );
+    }
+
+    function isSuperAdmin() {
+      return isBootstrapOwner() || (
+        callerExists() &&
+        callerData().accountStatus == 'APPROVED' &&
+        callerData().role == 'SUPER_ADMIN'
+      );
+    }
+
+    function hasCreateAdminsPermission() {
+      return isAdmin() &&
+        'permissions' in callerData() &&
+        callerData().permissions is list &&
+        'CREATE_ADMINS' in callerData().permissions;
+    }
+
+    function isOwnedProject(projectId) {
+      return isValidId(projectId) &&
+        exists(/databases/$(database)/documents/projects/$(projectId)) &&
+        get(/databases/$(database)/documents/projects/$(projectId)).data.ownerId == request.auth.uid;
+    }
+
+    // ---------------------------------------------------------
+    // Validation Blueprints
+    // ---------------------------------------------------------
+    function isValidUser(data) {
+      return data.keys().hasAll(['uid', 'displayName', 'email', 'role', 'accountStatus', 'createdAt', 'updatedAt', 'themePreference']) &&
+        data.keys().hasOnly(['uid', 'displayName', 'email', 'photoURL', 'role', 'accountStatus', 'permissions', 'createdAt', 'updatedAt', 'approvedAt', 'approvedBy', 'lastLoginAt', 'themePreference']) &&
+        isValidId(data.uid) &&
+        data.displayName is string && data.displayName.size() >= 1 && data.displayName.size() <= 120 &&
+        data.email is string && data.email.size() >= 3 && data.email.size() <= 254 &&
+        (!('photoURL' in data) || (data.photoURL is string && data.photoURL.size() <= 1024)) &&
+        data.role in ['CUSTOMER', 'ADMIN', 'SUPER_ADMIN'] &&
+        data.accountStatus in ['PENDING', 'APPROVED', 'REJECTED', 'SUSPENDED'] &&
+        (!('permissions' in data) || (
+          data.permissions is list &&
+          data.permissions.size() <= 10 &&
+          (data.permissions.size() == 0 || (data.permissions[0] is string && data.permissions[0].size() <= 64))
+        )) &&
+        data.themePreference in ['light', 'dark', 'system'] &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp &&
+        (!('approvedAt' in data) || data.approvedAt is timestamp) &&
+        (!('approvedBy' in data) || (data.approvedBy is string && data.approvedBy.size() <= 128)) &&
+        (!('lastLoginAt' in data) || data.lastLoginAt is timestamp);
+    }
+
+    function isValidProject(data) {
+      return data.keys().hasAll(['projectId', 'ownerId', 'projectName', 'status', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['projectId', 'ownerId', 'projectName', 'sourceVideoId', 'status', 'createdAt', 'updatedAt']) &&
+        isValidId(data.projectId) &&
+        isValidId(data.ownerId) &&
+        data.projectName is string && data.projectName.size() >= 1 && data.projectName.size() <= 160 &&
+        (!('sourceVideoId' in data) || (data.sourceVideoId is string && data.sourceVideoId.size() <= 128)) &&
+        data.status in ['DRAFT', 'PROCESSING', 'READY', 'ARCHIVED', 'FAILED'] &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidSourceVideo(data) {
+      return data.keys().hasAll(['videoId', 'ownerId', 'projectId', 'fileName', 'storagePath', 'duration', 'width', 'height', 'frameRate', 'fileSize', 'mimeType', 'processingStatus', 'createdAt']) &&
+        data.keys().hasOnly(['videoId', 'ownerId', 'projectId', 'fileName', 'storagePath', 'duration', 'width', 'height', 'frameRate', 'fileSize', 'mimeType', 'processingStatus', 'createdAt']) &&
+        isValidId(data.videoId) &&
+        isValidId(data.ownerId) &&
+        isValidId(data.projectId) &&
+        data.fileName is string && data.fileName.size() >= 1 && data.fileName.size() <= 255 &&
+        data.storagePath is string && data.storagePath.size() <= 1024 &&
+        data.duration is number && data.duration >= 0 && data.duration <= 86400 &&
+        data.width is int && data.width >= 0 && data.width <= 16384 &&
+        data.height is int && data.height >= 0 && data.height <= 16384 &&
+        data.frameRate is number && data.frameRate >= 0 && data.frameRate <= 240 &&
+        data.fileSize is int && data.fileSize >= 0 &&
+        data.mimeType is string && data.mimeType.size() >= 1 && data.mimeType.size() <= 120 &&
+        data.processingStatus in ['LOCAL_READY', 'UPLOADING', 'STORED', 'FAILED'] &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidProcessingJob(data) {
+      return data.keys().hasAll(['jobId', 'ownerId', 'projectId', 'sourceVideoId', 'status', 'progress', 'currentStage', 'executionMode', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['jobId', 'ownerId', 'projectId', 'sourceVideoId', 'status', 'progress', 'currentStage', 'errorMessage', 'executionMode', 'createdAt', 'updatedAt', 'completedAt']) &&
+        isValidId(data.jobId) &&
+        isValidId(data.ownerId) &&
+        isValidId(data.projectId) &&
+        isValidId(data.sourceVideoId) &&
+        data.status in ['QUEUED', 'VALIDATING', 'TRANSCRIBING', 'ANALYZING', 'SELECTING_CLIPS', 'RENDERING', 'QUALITY_CHECK', 'COMPLETED', 'FAILED', 'CANCELLED'] &&
+        data.progress is int && data.progress >= 0 && data.progress <= 100 &&
+        data.currentStage is string && data.currentStage.size() >= 1 && data.currentStage.size() <= 200 &&
+        (!('errorMessage' in data) || (data.errorMessage is string && data.errorMessage.size() <= 1000)) &&
+        data.executionMode in ['BROWSER_LOCAL', 'HYBRID_CLOUD'] &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp &&
+        (!('completedAt' in data) || data.completedAt is timestamp);
+    }
+
+    function isValidClip(data) {
+      return data.keys().hasAll(['clipId', 'ownerId', 'projectId', 'sourceVideoId', 'startTime', 'endTime', 'duration', 'title', 'description', 'score', 'clipStoragePath', 'aspectRatio', 'status', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['clipId', 'ownerId', 'projectId', 'sourceVideoId', 'startTime', 'endTime', 'duration', 'title', 'description', 'hook', 'topic', 'reason', 'score', 'clipStoragePath', 'aspectRatio', 'status', 'createdAt', 'updatedAt']) &&
+        isValidId(data.clipId) &&
+        isValidId(data.ownerId) &&
+        isValidId(data.projectId) &&
+        isValidId(data.sourceVideoId) &&
+        data.startTime is number && data.startTime >= 0 &&
+        data.endTime is number && data.endTime > data.startTime &&
+        data.duration is number && data.duration > 0 &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 200 &&
+        data.description is string && data.description.size() <= 1200 &&
+        (!('hook' in data) || (data.hook is string && data.hook.size() <= 400)) &&
+        (!('topic' in data) || (data.topic is string && data.topic.size() <= 120)) &&
+        (!('reason' in data) || (data.reason is string && data.reason.size() <= 800)) &&
+        data.score is int && data.score >= 0 && data.score <= 100 &&
+        data.clipStoragePath is string && data.clipStoragePath.size() <= 1024 &&
+        data.aspectRatio in ['9:16', '16:9', '1:1'] &&
+        data.status in ['CANDIDATE', 'EDITING', 'RENDERED', 'EXPORTED'] &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidTranscript(data) {
+      return data.keys().hasAll(['transcriptId', 'ownerId', 'projectId', 'sourceVideoId', 'language', 'transcriptText', 'timestampGranularity', 'timestampedSegments', 'createdAt']) &&
+        data.keys().hasOnly(['transcriptId', 'ownerId', 'projectId', 'sourceVideoId', 'language', 'transcriptText', 'timestampGranularity', 'timestampedSegments', 'createdAt']) &&
+        isValidId(data.transcriptId) &&
+        isValidId(data.ownerId) &&
+        isValidId(data.projectId) &&
+        isValidId(data.sourceVideoId) &&
+        data.language is string && data.language.size() >= 1 && data.language.size() <= 32 &&
+        data.transcriptText is string && data.transcriptText.size() <= 200000 &&
+        data.timestampGranularity in ['WORD', 'SEGMENT', 'MANUAL'] &&
+        data.timestampedSegments is list && data.timestampedSegments.size() <= 1000 &&
+        (data.timestampedSegments.size() == 0 || data.timestampedSegments[0] is map) &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidExport(data) {
+      return data.keys().hasAll(['exportId', 'ownerId', 'clipId', 'format', 'resolution', 'aspectRatio', 'storagePath', 'fileSize', 'status', 'createdAt']) &&
+        data.keys().hasOnly(['exportId', 'ownerId', 'clipId', 'format', 'resolution', 'aspectRatio', 'storagePath', 'fileSize', 'status', 'errorMessage', 'createdAt']) &&
+        isValidId(data.exportId) &&
+        isValidId(data.ownerId) &&
+        isValidId(data.clipId) &&
+        data.format in ['MP4'] &&
+        data.resolution in ['720p', '1080p'] &&
+        data.aspectRatio in ['9:16', '16:9', '1:1'] &&
+        data.storagePath is string && data.storagePath.size() <= 1024 &&
+        data.fileSize is int && data.fileSize >= 0 &&
+        data.status in ['RENDERING', 'COMPLETED', 'FAILED'] &&
+        (!('errorMessage' in data) || (data.errorMessage is string && data.errorMessage.size() <= 1000)) &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidBrandKit(data) {
+      return data.keys().hasAll(['brandKitId', 'ownerId', 'name', 'logoPath', 'primaryColor', 'secondaryColor', 'captionSettings', 'watermarkSettings', 'createdAt', 'updatedAt']) &&
+        data.keys().hasOnly(['brandKitId', 'ownerId', 'name', 'logoPath', 'primaryColor', 'secondaryColor', 'captionSettings', 'watermarkSettings', 'createdAt', 'updatedAt']) &&
+        isValidId(data.brandKitId) &&
+        isValidId(data.ownerId) &&
+        data.name is string && data.name.size() >= 1 && data.name.size() <= 120 &&
+        data.logoPath is string && data.logoPath.size() <= 1024 &&
+        data.primaryColor is string && data.primaryColor.size() >= 3 && data.primaryColor.size() <= 32 &&
+        data.secondaryColor is string && data.secondaryColor.size() >= 3 && data.secondaryColor.size() <= 32 &&
+        data.captionSettings is map &&
+        data.watermarkSettings is map &&
+        data.createdAt is timestamp &&
+        data.updatedAt is timestamp;
+    }
+
+    function isValidUsageRecord(data) {
+      return data.keys().hasAll(['recordId', 'ownerId', 'operation', 'resourceType', 'resourceAmount', 'createdAt']) &&
+        data.keys().hasOnly(['recordId', 'ownerId', 'operation', 'resourceType', 'resourceAmount', 'createdAt']) &&
+        isValidId(data.recordId) &&
+        isValidId(data.ownerId) &&
+        data.operation is string && data.operation.size() >= 1 && data.operation.size() <= 80 &&
+        data.resourceType in ['AI_REQUEST', 'VIDEO_UPLOAD', 'CLIP_RENDER', 'EXPORT', 'STORAGE_BYTES'] &&
+        data.resourceAmount is number && data.resourceAmount >= 0 &&
+        data.createdAt is timestamp;
+    }
+
+    function isValidSystemSetting(data) {
+      return data.keys().hasAll(['settingId', 'settingValue', 'updatedAt', 'updatedBy']) &&
+        data.keys().hasOnly(['settingId', 'settingValue', 'updatedAt', 'updatedBy']) &&
+        isValidId(data.settingId) &&
+        data.settingValue is map &&
+        data.updatedAt is timestamp &&
+        isValidId(data.updatedBy);
+    }
+
+    function isValidAuditLog(data) {
+      return data.keys().hasAll(['logId', 'actorId', 'action', 'targetId', 'timestamp', 'metadata']) &&
+        data.keys().hasOnly(['logId', 'actorId', 'action', 'targetId', 'timestamp', 'metadata']) &&
+        isValidId(data.logId) &&
+        isValidId(data.actorId) &&
+        data.action is string && data.action.size() >= 1 && data.action.size() <= 120 &&
+        data.targetId is string && data.targetId.size() <= 128 &&
+        data.timestamp is timestamp &&
+        data.metadata is map;
+    }
+
+    function isValidNotification(data) {
+      return data.keys().hasAll(['notificationId', 'ownerId', 'type', 'title', 'message', 'read', 'createdAt']) &&
+        data.keys().hasOnly(['notificationId', 'ownerId', 'type', 'title', 'message', 'read', 'createdAt']) &&
+        isValidId(data.notificationId) &&
+        isValidId(data.ownerId) &&
+        data.type in ['ACCOUNT_STATUS', 'VIDEO_UPLOAD', 'AI_ANALYSIS', 'CLIPS_GENERATED', 'EXPORT_COMPLETED', 'PROCESSING_FAILED'] &&
+        data.title is string && data.title.size() >= 1 && data.title.size() <= 160 &&
+        data.message is string && data.message.size() <= 500 &&
+        data.read is bool &&
+        data.createdAt is timestamp;
+    }
+
+    // ---------------------------------------------------------
+    // Collection Rules
+    // ---------------------------------------------------------
+    match /users/{userId} {
+      allow get: if isValidId(userId) && (isOwner(userId) || isAdmin());
+      allow list: if isSignedIn() && (
+        isBootstrapOwner() ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.accountStatus == 'APPROVED' &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['ADMIN', 'SUPER_ADMIN']) ||
+        resource.data.uid == request.auth.uid
+      );
+
+      allow create: if isSignedIn() &&
+        isValidId(userId) &&
+        isOwner(userId) &&
+        isValidUser(incoming()) &&
+        incoming().uid == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        (
+          (incoming().role == 'CUSTOMER' &&
+            incoming().accountStatus == 'PENDING' &&
+            (!('permissions' in incoming()) || incoming().permissions.size() == 0)) ||
+          (isBootstrapOwner() && incoming().role == 'SUPER_ADMIN' && incoming().accountStatus == 'APPROVED')
+        );
+
+      allow update: if isSignedIn() &&
+        isValidId(userId) &&
+        isValidUser(incoming()) &&
+        incoming().uid == existing().uid &&
+        incoming().email == existing().email &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          // Profile self-update (strictly non-privileged fields; role/accountStatus/permissions/approvedAt/approvedBy locked)
+          (isOwner(userId) &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'photoURL', 'themePreference', 'lastLoginAt', 'updatedAt']) &&
+            incoming().role == existing().role &&
+            incoming().accountStatus == existing().accountStatus) ||
+          // Bootstrap owner self-promotion/recovery
+          (isOwner(userId) && isBootstrapOwner() &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['role', 'accountStatus', 'permissions', 'approvedAt', 'approvedBy', 'lastLoginAt', 'updatedAt', 'displayName', 'photoURL', 'themePreference'])) ||
+          // Super Admin can assign CUSTOMER/ADMIN roles, permissions, and account statuses on non-self users (no duplicate SUPER_ADMIN)
+          (isSuperAdmin() &&
+            request.auth.uid != userId &&
+            existing().role != 'SUPER_ADMIN' &&
+            incoming().role in ['CUSTOMER', 'ADMIN'] &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['role', 'accountStatus', 'permissions', 'approvedAt', 'approvedBy', 'updatedAt'])) ||
+          // Standard Admin with explicit CREATE_ADMINS permission can create/promote CUSTOMER to ADMIN without CREATE_ADMINS
+          (hasCreateAdminsPermission() &&
+            request.auth.uid != userId &&
+            existing().role == 'CUSTOMER' &&
+            incoming().role == 'ADMIN' &&
+            incoming().accountStatus == 'APPROVED' &&
+            (!('permissions' in incoming()) || !('CREATE_ADMINS' in incoming().permissions)) &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['role', 'accountStatus', 'permissions', 'approvedAt', 'approvedBy', 'updatedAt'])) ||
+          // Standard Admin can approve/reject/suspend/reactivate CUSTOMER accounts only (cannot modify self, other admins, role, or permissions)
+          (isAdmin() &&
+            request.auth.uid != userId &&
+            existing().role == 'CUSTOMER' &&
+            incoming().role == existing().role &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['accountStatus', 'approvedAt', 'approvedBy', 'updatedAt']))
+        );
+
+      allow delete: if isValidId(userId) && isSuperAdmin() && request.auth.uid != userId;
+    }
+
+    match /projects/{projectId} {
+      allow get: if isValidId(projectId) && isSignedIn() && (existing().ownerId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (
+        isBootstrapOwner() ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.accountStatus == 'APPROVED' &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['ADMIN', 'SUPER_ADMIN']) ||
+        resource.data.ownerId == request.auth.uid
+      );
+
+      allow create: if isSignedIn() &&
+        isValidId(projectId) &&
+        isValidProject(incoming()) &&
+        isApprovedUser() &&
+        incoming().projectId == projectId &&
+        incoming().ownerId == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isSignedIn() &&
+        isValidId(projectId) &&
+        isValidProject(incoming()) &&
+        incoming().projectId == existing().projectId &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          isAdmin() ||
+          (isApprovedUser() &&
+            existing().ownerId == request.auth.uid &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['projectName', 'sourceVideoId', 'status', 'updatedAt']))
+        );
+
+      allow delete: if isValidId(projectId) && isSignedIn() && ((isApprovedUser() && existing().ownerId == request.auth.uid) || isAdmin());
+    }
+
+    match /sourceVideos/{videoId} {
+      allow get: if isValidId(videoId) && isSignedIn() && (existing().ownerId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (
+        isBootstrapOwner() ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.accountStatus == 'APPROVED' &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['ADMIN', 'SUPER_ADMIN']) ||
+        resource.data.ownerId == request.auth.uid
+      );
+
+      allow create: if isSignedIn() &&
+        isValidId(videoId) &&
+        isValidSourceVideo(incoming()) &&
+        isApprovedUser() &&
+        incoming().videoId == videoId &&
+        incoming().ownerId == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        isOwnedProject(incoming().projectId);
+
+      allow update: if isSignedIn() &&
+        isValidId(videoId) &&
+        isValidSourceVideo(incoming()) &&
+        incoming().videoId == existing().videoId &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().projectId == existing().projectId &&
+        incoming().createdAt == existing().createdAt &&
+        (
+          isAdmin() ||
+          (isApprovedUser() &&
+            existing().ownerId == request.auth.uid &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['storagePath', 'processingStatus']))
+        );
+
+      allow delete: if isValidId(videoId) && isSignedIn() && ((isApprovedUser() && existing().ownerId == request.auth.uid) || isAdmin());
+    }
+
+    match /processingJobs/{jobId} {
+      allow get: if isValidId(jobId) && isSignedIn() && (existing().ownerId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (
+        isBootstrapOwner() ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.accountStatus == 'APPROVED' &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['ADMIN', 'SUPER_ADMIN']) ||
+        resource.data.ownerId == request.auth.uid
+      );
+
+      allow create: if isSignedIn() &&
+        isValidId(jobId) &&
+        isValidProcessingJob(incoming()) &&
+        isApprovedUser() &&
+        incoming().jobId == jobId &&
+        incoming().ownerId == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        isOwnedProject(incoming().projectId);
+
+      allow update: if isSignedIn() &&
+        isValidId(jobId) &&
+        isValidProcessingJob(incoming()) &&
+        incoming().jobId == existing().jobId &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().projectId == existing().projectId &&
+        incoming().sourceVideoId == existing().sourceVideoId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          isAdmin() ||
+          (isApprovedUser() &&
+            existing().ownerId == request.auth.uid &&
+            !(existing().status in ['COMPLETED', 'CANCELLED']) &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['status', 'progress', 'currentStage', 'errorMessage', 'updatedAt', 'completedAt']))
+        );
+
+      allow delete: if isValidId(jobId) && isAdmin();
+    }
+
+    match /clips/{clipId} {
+      allow get: if isValidId(clipId) && isSignedIn() && (existing().ownerId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (
+        isBootstrapOwner() ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.accountStatus == 'APPROVED' &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['ADMIN', 'SUPER_ADMIN']) ||
+        resource.data.ownerId == request.auth.uid
+      );
+
+      allow create: if isSignedIn() &&
+        isValidId(clipId) &&
+        isValidClip(incoming()) &&
+        isApprovedUser() &&
+        incoming().clipId == clipId &&
+        incoming().ownerId == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        isOwnedProject(incoming().projectId);
+
+      allow update: if isSignedIn() &&
+        isValidId(clipId) &&
+        isValidClip(incoming()) &&
+        incoming().clipId == existing().clipId &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().projectId == existing().projectId &&
+        incoming().sourceVideoId == existing().sourceVideoId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        (
+          isAdmin() ||
+          (isApprovedUser() &&
+            existing().ownerId == request.auth.uid &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['startTime', 'endTime', 'duration', 'title', 'description', 'clipStoragePath', 'aspectRatio', 'status', 'updatedAt']))
+        );
+
+      allow delete: if isValidId(clipId) && isSignedIn() && ((isApprovedUser() && existing().ownerId == request.auth.uid) || isAdmin());
+    }
+
+    match /transcripts/{transcriptId} {
+      allow get: if isValidId(transcriptId) && isSignedIn() && (existing().ownerId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (
+        isBootstrapOwner() ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.accountStatus == 'APPROVED' &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['ADMIN', 'SUPER_ADMIN']) ||
+        resource.data.ownerId == request.auth.uid
+      );
+
+      allow create: if isSignedIn() &&
+        isValidId(transcriptId) &&
+        isValidTranscript(incoming()) &&
+        isApprovedUser() &&
+        incoming().transcriptId == transcriptId &&
+        incoming().ownerId == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        isOwnedProject(incoming().projectId);
+
+      allow update: if isSignedIn() &&
+        isValidId(transcriptId) &&
+        isValidTranscript(incoming()) &&
+        incoming().transcriptId == existing().transcriptId &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().projectId == existing().projectId &&
+        incoming().sourceVideoId == existing().sourceVideoId &&
+        incoming().createdAt == existing().createdAt &&
+        (
+          isAdmin() ||
+          (isApprovedUser() &&
+            existing().ownerId == request.auth.uid &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['language', 'transcriptText', 'timestampGranularity', 'timestampedSegments']))
+        );
+
+      allow delete: if isValidId(transcriptId) && isSignedIn() && ((isApprovedUser() && existing().ownerId == request.auth.uid) || isAdmin());
+    }
+
+    match /exports/{exportId} {
+      allow get: if isValidId(exportId) && isSignedIn() && (existing().ownerId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (
+        isBootstrapOwner() ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.accountStatus == 'APPROVED' &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['ADMIN', 'SUPER_ADMIN']) ||
+        resource.data.ownerId == request.auth.uid
+      );
+
+      allow create: if isSignedIn() &&
+        isValidId(exportId) &&
+        isValidExport(incoming()) &&
+        isApprovedUser() &&
+        incoming().exportId == exportId &&
+        incoming().ownerId == request.auth.uid &&
+        incoming().createdAt == request.time;
+
+      allow update: if isSignedIn() &&
+        isValidId(exportId) &&
+        isValidExport(incoming()) &&
+        incoming().exportId == existing().exportId &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().clipId == existing().clipId &&
+        incoming().createdAt == existing().createdAt &&
+        (
+          isAdmin() ||
+          (isApprovedUser() &&
+            existing().ownerId == request.auth.uid &&
+            existing().status != 'COMPLETED' &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['storagePath', 'fileSize', 'status', 'errorMessage']))
+        );
+
+      allow delete: if isValidId(exportId) && isSignedIn() && ((isApprovedUser() && existing().ownerId == request.auth.uid) || isAdmin());
+    }
+
+    match /brandKits/{brandKitId} {
+      allow get: if isValidId(brandKitId) && isSignedIn() && (existing().ownerId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+
+      allow create: if isSignedIn() &&
+        isValidId(brandKitId) &&
+        isValidBrandKit(incoming()) &&
+        isApprovedUser() &&
+        incoming().brandKitId == brandKitId &&
+        incoming().ownerId == request.auth.uid &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+
+      allow update: if isSignedIn() &&
+        isValidId(brandKitId) &&
+        isValidBrandKit(incoming()) &&
+        incoming().brandKitId == existing().brandKitId &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        isApprovedUser() &&
+        existing().ownerId == request.auth.uid &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['name', 'logoPath', 'primaryColor', 'secondaryColor', 'captionSettings', 'watermarkSettings', 'updatedAt']);
+
+      allow delete: if isValidId(brandKitId) && isSignedIn() && ((isApprovedUser() && existing().ownerId == request.auth.uid) || isAdmin());
+    }
+
+    match /usageRecords/{recordId} {
+      allow get: if isValidId(recordId) && isSignedIn() && (existing().ownerId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (
+        isBootstrapOwner() ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.accountStatus == 'APPROVED' &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['ADMIN', 'SUPER_ADMIN']) ||
+        resource.data.ownerId == request.auth.uid
+      );
+
+      allow create: if isSignedIn() &&
+        isValidId(recordId) &&
+        isValidUsageRecord(incoming()) &&
+        isApprovedUser() &&
+        incoming().recordId == recordId &&
+        incoming().ownerId == request.auth.uid &&
+        incoming().createdAt == request.time;
+
+      allow update: if false;
+      allow delete: if isValidId(recordId) && isSuperAdmin();
+    }
+
+    match /systemSettings/{settingId} {
+      allow get: if isValidId(settingId) && isApprovedUser();
+      allow list: if isApprovedUser();
+      allow create, update: if isValidId(settingId) &&
+        isSuperAdmin() &&
+        isValidSystemSetting(incoming()) &&
+        incoming().settingId == settingId &&
+        incoming().updatedAt == request.time &&
+        incoming().updatedBy == request.auth.uid;
+      allow delete: if isValidId(settingId) && isSuperAdmin();
+    }
+
+    match /auditLogs/{logId} {
+      allow get: if isValidId(logId) && isSuperAdmin();
+      allow list: if isSignedIn() && (
+        isBootstrapOwner() ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.accountStatus == 'APPROVED' &&
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'SUPER_ADMIN')
+      );
+      allow create: if isSignedIn() &&
+        isValidId(logId) &&
+        isValidAuditLog(incoming()) &&
+        incoming().logId == logId &&
+        incoming().actorId == request.auth.uid &&
+        incoming().timestamp == request.time &&
+        (isAdmin() || incoming().action in [
+          'USER_REGISTERED',
+          'FAILED_ADMIN_LOGIN',
+          'UNAUTHORIZED_ADMIN_ROUTE_ACCESS',
+          'UNAUTHORIZED_ADMIN_API_REQUEST'
+        ]);
+      allow update, delete: if false;
+    }
+
+    match /notifications/{notificationId} {
+      allow get: if isValidId(notificationId) && isSignedIn() && (existing().ownerId == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isSignedIn() &&
+        isValidId(notificationId) &&
+        isValidNotification(incoming()) &&
+        incoming().notificationId == notificationId &&
+        incoming().createdAt == request.time &&
+        (incoming().ownerId == request.auth.uid || isAdmin());
+      allow update: if isSignedIn() &&
+        isValidId(notificationId) &&
+        isValidNotification(incoming()) &&
+        incoming().notificationId == existing().notificationId &&
+        incoming().ownerId == existing().ownerId &&
+        incoming().type == existing().type &&
+        incoming().title == existing().title &&
+        incoming().message == existing().message &&
+        incoming().createdAt == existing().createdAt &&
+        existing().ownerId == request.auth.uid &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['read']);
+      allow delete: if isValidId(notificationId) && isSignedIn() && (existing().ownerId == request.auth.uid || isAdmin());
+    }
+  }
+}

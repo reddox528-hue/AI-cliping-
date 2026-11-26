@@ -1,0 +1,6 @@
+{
+  "name": "REDDOX Clipora AI",
+  "description": "AI-powered video clipping, automatic captioning, smart reframing, and browser-based video editing SaaS platform.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
